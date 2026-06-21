@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador — Corpo de Impressão Rotogravura</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root{
+    --bg:#0c0f14; --panel:#13181f; --line:#28313d; --ink:#cdd8e4;
+    --ink-dim:#7a8796; --accent:#4cc2ff; --warn:#ffb13f; --bad:#ff5252; --ok:#46d39a;
+    --mono:'SF Mono',ui-monospace,'Cascadia Code',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg); color:var(--ink); font-family:var(--mono); overflow:hidden; display:flex; flex-direction:column;}
+  header{padding:10px 16px; border-bottom:1px solid var(--line); display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; background:linear-gradient(180deg,#10151c,#0c0f14);}
+  header h1{font-size:13px; font-weight:600; letter-spacing:.14em; text-transform:uppercase}
+  header .sub{font-size:11px; color:var(--ink-dim); letter-spacing:.04em}
+  .wrap{flex:1; display:flex; min-height:0}
+  #stage{flex:1; position:relative; min-width:0; touch-action:none;}
+  canvas{display:block; touch-action:none;}
+  #camctl{position:absolute; right:14px; top:14px; display:flex; flex-direction:column; align-items:center; gap:5px; z-index:5;}
+  #camctl .ccrow{display:flex; gap:5px; justify-content:center}
+  #camctl .cczoom{margin-top:6px}
+  #camctl button{width:38px; height:38px; padding:0; font-size:15px; line-height:1; border:1px solid var(--line); background:rgba(19,24,31,.9); color:var(--ink); border-radius:7px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:.1s; -webkit-user-select:none; user-select:none; touch-action:manipulation;}
+  #camctl button:hover{border-color:var(--accent); color:var(--accent)}
+  #camctl button:active{background:var(--accent); color:#06222e}
+  #regPanel{position:absolute; left:14px; bottom:96px; width:184px; background:rgba(12,15,20,.9); border:1px solid var(--line); border-radius:6px; padding:8px; z-index:5; pointer-events:none;}
+  #regPanel .regTitle{font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:6px}
+  #regCanvas{width:168px; height:105px; display:block; background:#f4f4ef; border-radius:3px;}
+  #regPanel .regFoot{font-size:9px; color:var(--ink-dim); margin-top:5px; font-variant-numeric:tabular-nums; text-align:center}
+  #regPanel .regJobs{display:flex; gap:3px; margin-top:5px; pointer-events:auto}
+  #regPanel .jobBtn{flex:1; font-family:var(--mono); font-size:8px; letter-spacing:.03em; padding:4px 2px; border:1px solid var(--line); background:#1b232d; color:var(--ink-dim); border-radius:3px; cursor:pointer; touch-action:manipulation;}
+  #regPanel .jobBtn.on{border-color:var(--accent); color:var(--accent)}
+  @media (max-width:820px){ #regPanel{bottom:auto; top:60px; left:14px; width:150px} #regCanvas{width:134px;height:84px} }
+  #hud{position:absolute; left:14px; top:14px; pointer-events:none; font-size:11px; line-height:1.7; letter-spacing:.04em;}
+  #hud .row{display:flex; gap:8px}
+  #hud .k{color:var(--ink-dim); width:92px}
+  #hud .v{color:var(--ink); font-variant-numeric:tabular-nums}
+  #status{position:absolute; left:50%; bottom:18px; transform:translateX(-50%); pointer-events:none; text-align:center; font-size:12px; letter-spacing:.1em; text-transform:uppercase; padding:7px 16px; border:1px solid var(--line); border-radius:2px; background:rgba(12,15,20,.85); transition:.2s;}
+  .legend{position:absolute; right:14px; bottom:14px; pointer-events:none; font-size:10px; color:var(--ink-dim); text-align:right; line-height:1.8;}
+  .legend b{color:var(--ink); font-weight:500}
+  .tags{position:absolute; left:14px; bottom:14px; pointer-events:none; font-size:10px; color:var(--ink-dim); line-height:1.7}
+  .tags i{font-style:normal; color:var(--accent)}
+  #panel{width:340px; border-left:1px solid var(--line); background:var(--panel); overflow-y:auto;}
+  .sec{padding:15px 16px; border-bottom:1px solid var(--line)}
+  .sec h2{font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:13px; font-weight:600;}
+  .ctrl{margin-bottom:15px} .ctrl:last-child{margin-bottom:0}
+  .ctrl .lbl{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px}
+  .ctrl .name{font-size:12px; color:var(--ink)}
+  .ctrl .val{font-size:11px; font-variant-numeric:tabular-nums; color:var(--accent)}
+  .ctrl .val.warn{color:var(--warn)} .ctrl .val.bad{color:var(--bad)}
+  input[type=range]{-webkit-appearance:none; appearance:none; width:100%; height:3px; background:var(--line); border-radius:2px; outline:none; cursor:pointer;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:15px; height:15px; border-radius:50%; background:var(--ink); border:2px solid var(--panel); box-shadow:0 0 0 1px var(--line); cursor:pointer; transition:.1s;}
+  input[type=range]::-webkit-slider-thumb:hover{background:var(--accent)}
+  input[type=range]::-moz-range-thumb{width:15px; height:15px; border-radius:50%; background:var(--ink); border:2px solid var(--panel); cursor:pointer;}
+  input[type=range].hot::-webkit-slider-thumb{background:var(--warn)}
+  input[type=range].crit::-webkit-slider-thumb{background:var(--bad)}
+  .desc{font-size:10px; color:var(--ink-dim); margin-top:5px; line-height:1.5}
+  .speedval{font-size:30px; font-variant-numeric:tabular-nums; line-height:1}
+  .speedunit{font-size:11px; color:var(--ink-dim); margin-left:4px}
+  .health{height:6px; background:var(--line); border-radius:3px; overflow:hidden; margin-top:4px}
+  .health > i{display:block; height:100%; width:100%; background:var(--ok); transition:width .15s, background .3s}
+  .btnrow{display:flex; gap:8px; margin-top:4px}
+  button.act{flex:1; font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; padding:9px; border:1px solid var(--line); background:#1b232d; color:var(--ink); border-radius:2px; cursor:pointer; transition:.12s;}
+  button.act:hover{border-color:var(--accent); color:var(--accent)}
+  button.act.danger:hover{border-color:var(--bad); color:var(--bad)}
+  .tag{display:inline-block; font-size:9px; letter-spacing:.1em; text-transform:uppercase; padding:2px 6px; border-radius:2px; border:1px solid var(--line); color:var(--ink-dim);}
+  .note{font-size:10px; color:var(--ink-dim); line-height:1.6}
+  .note b{color:var(--warn); font-weight:500}
+  .views{display:flex; gap:6px; flex-wrap:wrap}
+  .views button{flex:0 0 auto; padding:6px 10px; font-size:10px; font-family:var(--mono); border:1px solid var(--line); background:#1b232d; color:var(--ink); border-radius:2px; cursor:pointer; letter-spacing:.04em;}
+  .views button:hover{border-color:var(--accent); color:var(--accent)}
+  .specs{font-size:10px; color:var(--ink-dim); line-height:1.8}
+  .specs b{color:var(--ink); font-weight:500; font-variant-numeric:tabular-nums}
+  .xtra{font-size:10px; color:var(--accent); margin-top:5px}
+  .orig{display:inline-block; font-size:8px; letter-spacing:.08em; text-transform:uppercase; padding:1px 5px; border-radius:2px; margin-left:6px; vertical-align:middle}
+  .orig.wear{background:rgba(138,151,166,.18); color:#aeb9c4}
+  .orig.maint{background:rgba(76,194,255,.16); color:#7fd2ff}
+  .orig.oper{background:rgba(255,177,63,.16); color:#ffc878}
+  #panel::-webkit-scrollbar{width:8px}
+  #panel::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px}
+  @media (max-width:820px){
+    .wrap{flex-direction:column}
+    #panel{width:100%; border-left:none; border-top:1px solid var(--line); max-height:46vh}
+    #stage{min-height:54vh}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Corpo de Impressão · Rotogravura</h1>
+  <span class="sub">impacto na produção · metros perdidos e tempo de reajuste · porque a manutenção preventiva compensa</span>
+</header>
+
+<div class="wrap">
+  <div id="stage">
+    <div id="hud">
+      <div class="row"><span class="k">Rotação</span><span class="v" id="hRpm">0 rpm</span></div>
+      <div class="row"><span class="k">Perím./Ø</span><span class="v" id="hDia">420 / Ø134 mm</span></div>
+      <div class="row"><span class="k">Excentric.</span><span class="v" id="hEcc">0.00 mm</span></div>
+      <div class="row"><span class="k">Vibração</span><span class="v" id="hVib">0 %</span></div>
+      <div class="row"><span class="k">Defeitos</span><span class="v" id="hDef">nenhum</span></div>
+    </div>
+    <div id="status">— parado —</div>
+    <div id="regPanel">
+      <div class="regTitle">Prova de cor · <span id="regJobName">ObaniA</span></div>
+      <canvas id="regCanvas" width="320" height="200"></canvas>
+      <div class="regJobs">
+        <button data-job="0" class="jobBtn on">ObaniA</button>
+        <button data-job="1" class="jobBtn">Bolachas</button>
+        <button data-job="2" class="jobBtn">3 Pantones</button>
+      </div>
+      <div class="regFoot"><span id="regFootErr">0 µm</span> · <span id="regFootState">alinhado</span> · tol. <span id="regFootTol">apertada</span></div>
+    </div>
+    <div class="tags">
+      <div><i>◄</i> lado motor (cadeia escatéis · traciona)</div>
+      <div><i>►</i> lado fora (rosca + 2 anilhas · só centra)</div>
+    </div>
+    <div class="legend">
+      <div><b>botões ►</b> rodar e zoom</div>
+      <div>vermelho = zona de falha</div>
+    </div>
+    <div id="camctl">
+      <div class="ccrow"><button data-cam="up">▲</button></div>
+      <div class="ccrow"><button data-cam="left">◄</button><button data-cam="reset">⟳</button><button data-cam="right">►</button></div>
+      <div class="ccrow"><button data-cam="down">▼</button></div>
+      <div class="ccrow cczoom"><button data-cam="zin">＋</button><button data-cam="zout">－</button></div>
+    </div>
+  </div>
+
+  <div id="panel">
+    <div class="sec" id="analysisSec">
+      <h2>Impacto na produção</h2>
+      <div class="ctrl">
+        <div class="lbl"><span class="name">Velocidade · atual vs potencial</span><span class="val" id="spdVal">110 / 300 m/min</span></div>
+        <div class="health"><i id="spdBar"></i></div>
+        <div class="desc" id="spdNote">A instabilidade obriga a abrandar — capacidade perdida.</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0">
+        <div style="background:#10151c;border:1px solid var(--line);border-radius:4px;padding:8px">
+          <div style="font-size:9px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.08em">Erro registo</div>
+          <div style="font-size:16px;font-variant-numeric:tabular-nums" id="regVal">0 µm</div>
+        </div>
+        <div style="background:#10151c;border:1px solid var(--line);border-radius:4px;padding:8px">
+          <div style="font-size:9px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.08em">Manchas tinta</div>
+          <div style="font-size:16px;font-variant-numeric:tabular-nums" id="splVal">0 %</div>
+        </div>
+        <div style="background:#10151c;border:1px solid var(--line);border-radius:4px;padding:8px">
+          <div style="font-size:9px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.08em">Refugo do lote</div>
+          <div style="font-size:16px;font-variant-numeric:tabular-nums" id="scrapVal">0 %</div>
+        </div>
+        <div style="background:#10151c;border:1px solid var(--line);border-radius:4px;padding:8px">
+          <div style="font-size:9px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.08em">Aceitação cliente</div>
+          <div style="font-size:16px;font-variant-numeric:tabular-nums" id="clientVal">OK</div>
+        </div>
+      </div>
+      <div style="background:#10151c;border:1px solid var(--line);border-radius:4px;padding:9px;margin-bottom:10px">
+        <div style="font-size:9px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Acumulado nesta tiragem</div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--ink-dim)">Metros perdidos</span><span id="mLost" style="font-variant-numeric:tabular-nums;color:var(--bad)">0 m</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--ink-dim)">Tempo em reajustes</span><span id="tLost" style="font-variant-numeric:tabular-nums;color:var(--warn)">0 min</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--ink-dim)">Desapertos de anilhas</span><span id="nEvents" style="font-variant-numeric:tabular-nums;color:var(--ink)">0×</span></div>
+      </div>
+      <div style="margin:10px 0 6px">
+        <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:7px">Causa dos metros perdidos</div>
+        <div id="blameBar" style="display:flex;height:14px;border-radius:3px;overflow:hidden;background:var(--line)">
+          <i id="bWear"  style="display:block;height:100%;width:0;background:#8a97a6"></i>
+          <i id="bMaint" style="display:block;height:100%;width:0;background:#4cc2ff"></i>
+          <i id="bOper"  style="display:block;height:100%;width:0;background:#ffb13f"></i>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--ink-dim);margin-top:5px">
+          <span style="color:#8a97a6">■ desgaste <span id="pctWear">0%</span></span>
+          <span style="color:#4cc2ff">■ manut. <span id="pctMaint">0%</span></span>
+          <span style="color:#ffb13f">■ operador <span id="pctOper">0%</span></span>
+        </div>
+      </div>
+      <div id="verdict" style="font-size:11px;line-height:1.5;color:var(--ink);background:#10151c;border:1px solid var(--line);border-radius:4px;padding:9px;margin-top:8px">
+        Dá rotação para simular uma tiragem e ver o impacto.
+      </div>
+      <div class="btnrow"><button class="act" id="btnZero">Zerar contadores</button></div>
+    </div>
+    <div class="sec">
+      <h2>Cilindro</h2>
+      <div class="ctrl">
+        <div class="lbl"><span class="name">Perímetro (desenvolvimento)</span><span class="val" id="vDia">420 mm</span></div>
+        <input type="range" id="dia" min="300" max="800" value="420" step="10">
+        <div class="desc">Em rotogravura mede-se o perímetro. Ø calculado = perímetro ÷ π. 420 mm → Ø≈134 mm. Maior perímetro amplifica inércia e desequilíbrio.</div>
+      </div>
+    </div>
+    <div class="sec">
+      <h2>Velocidade</h2>
+      <div class="ctrl">
+        <div class="lbl"><span><span class="speedval" id="spVal">0</span><span class="speedunit">rpm</span></span><span class="val" id="spState">parado</span></div>
+        <input type="range" id="speed" min="0" max="600" value="0" step="1">
+        <div class="desc">Sobe a rotação até perder estabilidade. O limiar depende dos defeitos e do diâmetro.</div>
+      </div>
+      <div class="ctrl">
+        <div class="lbl"><span class="name">Integridade</span><span class="val" id="healthPct">100%</span></div>
+        <div class="health"><i id="healthBar"></i></div>
+      </div>
+      <div class="btnrow">
+        <button class="act danger" id="btnReset">Reset</button>
+        <button class="act" id="btnReseat">Remontar limpo</button>
+      </div>
+    </div>
+    <div class="sec">
+      <h2>Defeitos · severidade</h2>
+      <div class="ctrl">
+        <div class="lbl"><span class="name">Chaveta mal assente<span class="orig oper">operador</span></span><span class="val" id="vKey">0%</span></div>
+        <input type="range" id="dKey" min="0" max="100" value="0">
+        <div class="desc">Cilindro "encavalitado" sobre a chaveta — apoia torto desde a montagem.</div>
+      </div>
+      <div class="ctrl">
+        <div class="lbl"><span class="name">Escatel gasto<span class="orig wear">desgaste</span></span><span class="val" id="vSlot">0%</span></div>
+        <input type="range" id="dSlot" min="0" max="100" value="0">
+        <div class="desc">O rasgo da chaveta alargou — o cilindro "bate" a cada arranque/paragem.</div>
+      </div>
+      <div class="ctrl">
+        <div class="lbl"><span class="name">Alojamento alargado<span class="orig wear">desgaste</span></span><span class="val" id="vSeat">0%</span></div>
+        <input type="range" id="dSeat" min="0" max="100" value="0">
+        <div class="desc">A boca do cilindro alargou de tantas montagens — a bucha entra demais e centra mal. Nos dois lados.</div>
+        <div class="xtra" id="seatNote"></div>
+      </div>
+      <div class="ctrl">
+        <div class="lbl"><span class="name">Anilhas desapertadas<span class="orig oper">operador</span></span><span class="val" id="vNut">0%</span></div>
+        <input type="range" id="dNut" min="0" max="100" value="0">
+        <div class="desc">Fixação axial a ceder: as anilhas largam na rosca e o cilindro ganha jogo lateral.</div>
+      </div>
+      <div class="ctrl">
+        <div class="lbl"><span class="name">Folga rolamentos<span class="orig maint">manutenção</span></span><span class="val" id="vBal">0%</span></div>
+        <input type="range" id="dBal" min="0" max="100" value="0">
+        <div class="desc">Massa desequilibrada ou rolos gastos nas rodas — agrava muito com a velocidade.</div>
+      </div>
+    </div>
+    <div class="sec">
+      <h2>Travamento das anilhas</h2>
+      <div class="ctrl">
+        <div class="lbl"><span class="name">Sistema aplicado</span><span class="tag" id="lockTag">nenhum</span></div>
+        <input type="range" id="lock" min="0" max="4" value="0" step="1">
+        <div class="desc" id="lockDesc">Sem travamento — só aperto por atrito. Vibração desaperta com facilidade.</div>
+      </div>
+    </div>
+    <div class="sec">
+      <h2>Vista</h2>
+      <div class="views">
+        <button data-view="perspectiva">Perspetiva</button>
+        <button data-view="lado">Lado</button>
+        <button data-view="motor">Lado motor</button>
+        <button data-view="apoio">Apoio (roda)</button>
+        <button data-view="explodida">Explodida</button>
+      </div>
+    </div>
+    <div class="sec">
+      <h2>Medidas reais</h2>
+      <div class="specs">
+        Veio Ø<b>65</b> · comp. <b>1920 mm</b><br>
+        Roda: abas Ø<b>155</b> · calha Ø<b>145</b> · larg. <b>70</b><br>
+        Cilindro larg. <b>850</b> · Ø <b>420</b> (variável)<br>
+        Lado dentro: peça fixa c/ escatel → bucha → cilindro<br>
+        Lado fora: rosca → bucha → anilha → anilha
+      </div>
+    </div>
+    <div class="sec">
+      <p class="note"><b>Aviso.</b> Ferramenta didática. As rotações de falha são estimativas de um modelo simplificado, não cálculo estrutural da máquina real. Não usar para decisões de operação. Soltura em andamento deve ser reportada à manutenção.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const stage=document.getElementById('stage');
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x0c0f14);
+scene.fog=new THREE.Fog(0x0c0f14,36,86);
+const camera=new THREE.PerspectiveCamera(42,1,0.1,400);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+stage.appendChild(renderer.domElement);
+function resize(){const w=stage.clientWidth,h=stage.clientHeight; renderer.setSize(w,h); camera.aspect=w/h; camera.updateProjectionMatrix();}
+window.addEventListener('resize',resize);
+
+scene.add(new THREE.AmbientLight(0x6a7686,0.62));
+const keyL=new THREE.DirectionalLight(0xffffff,0.95); keyL.position.set(10,15,11); scene.add(keyL);
+const rimL=new THREE.DirectionalLight(0x4cc2ff,0.4); rimL.position.set(-11,4,-7); scene.add(rimL);
+const fillL=new THREE.DirectionalLight(0xffffff,0.22); fillL.position.set(0,-8,5); scene.add(fillL);
+const warmL=new THREE.PointLight(0xffd9a0,0.45,46); warmL.position.set(-10,3,3); scene.add(warmL);
+
+const MM=0.01;
+const shaftR=65*MM/2;         // 0.325
+const wheelAbaR=155*MM/2;     // 0.775 abas
+const wheelGrvR=145*MM/2;     // 0.725 calha (fundo) — assenta na meia-cana
+const wheelW=70*MM;           // 0.70
+const shaftLen=1920*MM;       // 19.2
+const cylW=850*MM;            // 8.5
+const wheelX=shaftLen/2-1.6;
+
+// floor + grid
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(140,140), new THREE.MeshStandardMaterial({color:0x10151b,metalness:.2,roughness:.9}));
+floor.rotation.x=-Math.PI/2; floor.position.y=-6.01; scene.add(floor);
+const grid=new THREE.GridHelper(140,70,0x223044,0x161f2b); grid.position.y=-6; scene.add(grid);
+
+// materials
+const matShaft=new THREE.MeshStandardMaterial({color:0x8a97a6,metalness:.85,roughness:.35});
+const matShaftDk=new THREE.MeshStandardMaterial({color:0x46525d,metalness:.7,roughness:.5});
+const matWheel=new THREE.MeshStandardMaterial({color:0x59656f,metalness:.7,roughness:.4});
+const matWheel2=new THREE.MeshStandardMaterial({color:0x707d88,metalness:.75,roughness:.35});
+const matBush=new THREE.MeshStandardMaterial({color:0xb8c2cd,metalness:.7,roughness:.4});
+const matBushDk=new THREE.MeshStandardMaterial({color:0x3a4651,metalness:.6,roughness:.5});
+const matKey=new THREE.MeshStandardMaterial({color:0x4cc2ff,metalness:.5,roughness:.4,emissive:0x10303f,emissiveIntensity:.5});
+const matFixed=new THREE.MeshStandardMaterial({color:0x6b7682,metalness:.7,roughness:.45});
+const matCyl=new THREE.MeshStandardMaterial({color:0x5d6b7a,metalness:.55,roughness:.42});
+const matCylEnd=new THREE.MeshStandardMaterial({color:0x3a4651,metalness:.5,roughness:.5});
+const matNut=new THREE.MeshStandardMaterial({color:0xd7dde3,metalness:.8,roughness:.3});
+const matNutX=new THREE.MeshStandardMaterial({color:0xffb13f,metalness:.7,roughness:.35,emissive:0x3a2600,emissiveIntensity:.4});
+const matFrame=new THREE.MeshStandardMaterial({color:0x2b3a4a,metalness:.4,roughness:.6});
+const matFrameDk=new THREE.MeshStandardMaterial({color:0x1d2731,metalness:.4,roughness:.65});
+const matMotor=new THREE.MeshStandardMaterial({color:0x355061,metalness:.5,roughness:.5});
+const matMotorFin=new THREE.MeshStandardMaterial({color:0x29404e,metalness:.5,roughness:.55});
+
+// ---- MACHINE: side frames with half-pipe cradle (meia-cana) open at top
+const machine=new THREE.Group(); scene.add(machine);
+const cradleTopY=-wheelGrvR;       // groove (Ø145) rests on cradle bottom
+const cradleR=wheelGrvR+0.05;      // cradle curvature ~ wheel groove
+function sideFrame(x){
+  const g=new THREE.Group();
+  // tall side wall plate
+  const wall=new THREE.Mesh(new THREE.BoxGeometry(0.5,5.2,4.2), matFrame);
+  wall.position.set(x, cradleTopY-2.0, 0); g.add(wall);
+  // half-pipe cradle: half cylinder opening up, axis along X, only as wide as the groove
+  const cupGeo=new THREE.CylinderGeometry(cradleR,cradleR,wheelW*0.55,36,1,false,0,Math.PI);
+  const cup=new THREE.Mesh(cupGeo, matFrameDk);
+  cup.rotation.z=Math.PI/2; cup.rotation.x=Math.PI; cup.position.set(x,cradleTopY,0); g.add(cup);
+  // contact liner
+  const liner=new THREE.Mesh(new THREE.CylinderGeometry(cradleR-0.03,cradleR-0.03,wheelW*0.5,36,1,true,0,Math.PI), matWheel2);
+  liner.rotation.z=Math.PI/2; liner.rotation.x=Math.PI; liner.position.set(x,cradleTopY,0); g.add(liner);
+  // shoulders of the U (the open top saddle)
+  [-1,1].forEach(s=>{
+    const sh=new THREE.Mesh(new THREE.BoxGeometry(0.5,1.4,0.6), matFrame);
+    sh.position.set(x, cradleTopY+0.5, s*(cradleR+0.2)); g.add(sh);
+  });
+  // foot
+  const foot=new THREE.Mesh(new THREE.BoxGeometry(1.1,0.5,5.0), matFrameDk);
+  foot.position.set(x, cradleTopY-4.5, 0); g.add(foot);
+  return g;
+}
+const frameInX=-wheelX, frameOutX=wheelX;
+machine.add(sideFrame(frameInX), sideFrame(frameOutX));
+// bench beams linking frames
+[-2.2,2.2].forEach(z=>{const b=new THREE.Mesh(new THREE.BoxGeometry((frameOutX-frameInX)+1.0,0.5,0.7), matFrameDk); b.position.set(0,cradleTopY-4.4,z); machine.add(b);});
+
+// ---- MOTOR (lado dentro)
+const motorX0=frameInX-2.6;
+const motor=new THREE.Group(); scene.add(motor);
+const mBody=new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.5,2.8,28), matMotor); mBody.rotation.z=Math.PI/2; mBody.position.set(motorX0,0,0); motor.add(mBody);
+for(let i=0;i<12;i++){const f=new THREE.Mesh(new THREE.TorusGeometry(1.52,0.06,6,28), matMotorFin); f.rotation.y=Math.PI/2; f.position.set(motorX0-1.2+i*0.18,0,0); motor.add(f);}
+const mBack=new THREE.Mesh(new THREE.BoxGeometry(0.9,2.0,2.0), matFrameDk); mBack.position.set(motorX0-1.7,0,0); motor.add(mBack);
+const mFoot=new THREE.Mesh(new THREE.BoxGeometry(3.0,0.5,2.8), matFrameDk); mFoot.position.set(motorX0,-1.9,0); motor.add(mFoot);
+const mPost=new THREE.Mesh(new THREE.BoxGeometry(0.6,2.6,0.6), matFrame); mPost.position.set(motorX0,-3.4,0); motor.add(mPost);
+const coupling=new THREE.Mesh(new THREE.CylinderGeometry(0.45,0.45,1.3,18), matFixed); coupling.rotation.z=Math.PI/2; coupling.position.set(motorX0+1.7,0,0); motor.add(coupling);
+
+// ---- ROTOR (spins)
+const root=new THREE.Group(); scene.add(root);
+const rotor=new THREE.Group(); root.add(rotor);
+
+// shaft: thinner journals at ends, thicker mid is hidden inside cylinder; keep single Ø65 but add a threaded zone outer
+const shaft=new THREE.Mesh(new THREE.CylinderGeometry(shaftR,shaftR,shaftLen,32), matShaft); shaft.rotation.z=Math.PI/2; rotor.add(shaft);
+// threaded zone (lado fora) — wireframe sleeve
+const thread=new THREE.Mesh(new THREE.CylinderGeometry(shaftR+0.015,shaftR+0.015,1.8,24,1,true), new THREE.MeshStandardMaterial({color:0x6b7682,metalness:.7,roughness:.5,wireframe:true})); thread.rotation.z=Math.PI/2; thread.position.x=cylW/2+1.35; rotor.add(thread);
+
+// dog-clutch on motor end
+const dogGroup=new THREE.Group(); rotor.add(dogGroup);
+const dogBody=new THREE.Mesh(new THREE.CylinderGeometry(shaftR*1.5,shaftR*1.5,0.7,24), matFixed); dogBody.rotation.z=Math.PI/2; dogBody.position.x=-shaftLen/2-0.35; dogGroup.add(dogBody);
+for(let i=0;i<3;i++){const a=i/3*Math.PI*2; const tooth=new THREE.Mesh(new THREE.BoxGeometry(0.35,0.34,0.18), matFixed); tooth.position.set(-shaftLen/2-0.7,Math.cos(a)*shaftR*0.95,Math.sin(a)*shaftR*0.95); dogGroup.add(tooth);}
+
+// ---- WHEELS: pulley profile (abas Ø155 + groove Ø145), spin with shaft, rest in cradle
+function makeWheel(x){
+  const g=new THREE.Group();
+  // central groove band Ø145 (contact)
+  const grv=new THREE.Mesh(new THREE.CylinderGeometry(wheelGrvR,wheelGrvR,wheelW*0.5,40), matWheel2); grv.rotation.z=Math.PI/2; g.add(grv);
+  // two flanges Ø155 (abas) on the sides
+  [-1,1].forEach(s=>{
+    const aba=new THREE.Mesh(new THREE.CylinderGeometry(wheelAbaR,wheelAbaR,wheelW*0.22,40), matWheel2);
+    aba.rotation.z=Math.PI/2; aba.position.x=s*(wheelW*0.5/2+wheelW*0.11); g.add(aba);
+  });
+  // hub bore hint
+  const hub=new THREE.Mesh(new THREE.CylinderGeometry(shaftR*1.15,shaftR*1.15,wheelW*0.74,28), matShaftDk); hub.rotation.z=Math.PI/2; g.add(hub);
+  g.position.x=x; return g;
+}
+const wheelL=makeWheel(-wheelX), wheelR_=makeWheel(wheelX); rotor.add(wheelL,wheelR_);
+
+// ---- LADO DENTRO: peça fixa ao veio (com escatel) — sits just inboard of cylinder inner mouth
+const fixedPiece=new THREE.Group(); rotor.add(fixedPiece);
+const fixBody=new THREE.Mesh(new THREE.CylinderGeometry(shaftR*1.8,shaftR*1.8,0.8,32), matFixed); fixBody.rotation.z=Math.PI/2; fixBody.position.x=-cylW/2-0.9; fixedPiece.add(fixBody);
+// escatel slot in the fixed piece (a notch on its rim)
+const fixSlot=new THREE.Mesh(new THREE.BoxGeometry(0.82,0.18,0.3), new THREE.MeshStandardMaterial({color:0x141c25,metalness:.3,roughness:.8})); fixSlot.position.set(-cylW/2-0.9, shaftR*1.8-0.05, 0); fixedPiece.add(fixSlot);
+
+// ---- BUSHINGS (bucha): composite, both mouths. Inner one engages fixed piece's escatel; both have own key into cylinder
+function makeBush(x, withKeyTop){
+  const g=new THREE.Group();
+  const sleeve=new THREE.Mesh(new THREE.CylinderGeometry(shaftR*1.65,shaftR*1.65,0.55,32), matBush); sleeve.rotation.z=Math.PI/2; g.add(sleeve);
+  const collar=new THREE.Mesh(new THREE.CylinderGeometry(shaftR*1.8,shaftR*1.8,0.3,32), matBushDk); collar.rotation.z=Math.PI/2; collar.position.x=(x<0?0.32:-0.32); g.add(collar);
+  // its own key (chaveta) that goes into the cylinder escatel (hidden inside the mouth)
+  const k=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.12,0.24), matKey); k.position.set((x<0?-0.2:0.2), shaftR*1.65+0.02, 0); g.add(k);
+  g.position.x=x; return g;
+}
+const bushIn=makeBush(-cylW/2-0.4,true), bushOut=makeBush(cylW/2+0.4,true); rotor.add(bushIn,bushOut);
+
+// ---- CYLINDER (single solid roto cylinder: engraving on central ~750mm, ~50mm plain margins)
+const cylGroup=new THREE.Group(); rotor.add(cylGroup);
+function makeEngravingTexture(word){
+  const cv=document.createElement('canvas'); cv.width=2048; cv.height=512;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#6b7a86'; ctx.fillRect(0,0,cv.width,cv.height);            // chromed steel tone
+  ctx.fillStyle='rgba(44,56,66,0.30)';                                      // rotogravure cell screen
+  for(let y=6;y<cv.height;y+=9){ for(let x=(y/9%2?4:0);x<cv.width;x+=9){ ctx.beginPath(); ctx.arc(x,y,1.5,0,Math.PI*2); ctx.fill(); } }
+  ctx.fillStyle='rgba(22,30,38,0.92)';                                      // engraved (recessed) word
+  ctx.font='bold 90px Georgia, serif'; ctx.textBaseline='middle';
+  const rows=3;
+  for(let r=0;r<rows;r++){
+    const y=cv.height*(r+0.5)/rows; const stagger=(r%2)?-180:0;
+    for(let x=-180+stagger; x<cv.width+180; x+=540){
+      ctx.fillStyle='rgba(150,165,178,0.16)'; ctx.fillText(word, x+2, y+2);   // highlight edge
+      ctx.fillStyle='rgba(22,30,38,0.92)'; ctx.fillText(word, x, y);
+    }
+  }
+  const tex=new THREE.CanvasTexture(cv); tex.wrapS=THREE.RepeatWrapping; tex.wrapT=THREE.RepeatWrapping; tex.anisotropy=8;
+  return tex;
+}
+let engTex=makeEngravingTexture('ObaniA');
+const matCylEngraved=new THREE.MeshStandardMaterial({map:engTex, metalness:.55, roughness:.45});
+const matCylPlain=new THREE.MeshStandardMaterial({color:0x7a8893, metalness:.7, roughness:.4}); // plain chromed margins
+let cylEngr, cylMargL, cylMargR, mouthL, mouthR;
+const ENGR_W=750*MM;   // 7.5 engraved band
+function buildCylinder(perimMM){
+  if(cylEngr){cylGroup.remove(cylEngr,cylMargL,cylMargR,mouthL,mouthR);}
+  const diaMM=perimMM/Math.PI;       // perímetro -> diâmetro
+  const R=diaMM*MM/2;
+  const margW=(cylW-ENGR_W)/2;
+  engTex.repeat.set(Math.max(2,Math.round(R*3.0)), 1);
+  cylEngr=new THREE.Mesh(new THREE.CylinderGeometry(R,R,ENGR_W,64), matCylEngraved); cylEngr.rotation.z=Math.PI/2; cylGroup.add(cylEngr);
+  cylMargL=new THREE.Mesh(new THREE.CylinderGeometry(R,R,margW,64), matCylPlain); cylMargL.rotation.z=Math.PI/2; cylMargL.position.x=-(ENGR_W/2+margW/2); cylGroup.add(cylMargL);
+  cylMargR=new THREE.Mesh(new THREE.CylinderGeometry(R,R,margW,64), matCylPlain); cylMargR.rotation.z=Math.PI/2; cylMargR.position.x=(ENGR_W/2+margW/2); cylGroup.add(cylMargR);
+  mouthL=new THREE.Mesh(new THREE.CylinderGeometry(shaftR*1.7,shaftR*1.7,0.4,28,1,true), new THREE.MeshStandardMaterial({color:0x0e141b,metalness:.3,roughness:.85,side:THREE.BackSide})); mouthL.rotation.z=Math.PI/2; mouthL.position.x=-cylW/2+0.2; cylGroup.add(mouthL);
+  mouthR=mouthL.clone(); mouthR.position.x=cylW/2-0.2; cylGroup.add(mouthR);
+}
+buildCylinder(420);
+
+// ---- NUTS / ANILHAS (lado fora) — two washers on thread + extra shims when seat worn
+const nutGroup=new THREE.Group(); rotor.add(nutGroup);
+function makeNut(x,r,m){const n=new THREE.Mesh(new THREE.CylinderGeometry(r,r,0.3,28), m||matNut); n.rotation.z=Math.PI/2; n.position.x=x; return n;}
+const nutA=makeNut(cylW/2+1.05,shaftR*1.5), nutB=makeNut(cylW/2+1.45,shaftR*1.5);
+nutGroup.add(nutA,nutB);
+const shimsOut=[], shimsIn=[];
+for(let i=0;i<4;i++){const so=makeNut(0,shaftR*1.55,matNutX); so.visible=false; nutGroup.add(so); shimsOut.push(so); const si=makeNut(0,shaftR*1.55,matNutX); si.visible=false; nutGroup.add(si); shimsIn.push(si);}
+
+// stress shell
+const stressMat=new THREE.MeshBasicMaterial({color:0xff5252,transparent:true,opacity:0,wireframe:true});
+const stressShell=new THREE.Mesh(new THREE.CylinderGeometry(1.6,1.6,cylW+0.3,32,1,true),stressMat); stressShell.rotation.z=Math.PI/2; cylGroup.add(stressShell);
+
+// ---- Camera
+let camTheta=0.72,camPhi=1.08,camRad=30,camTarget=new THREE.Vector3(0,-0.6,0);
+let dragging=false,px=0,py=0;
+function updateCam(){const x=camRad*Math.sin(camPhi)*Math.cos(camTheta); const y=camTarget.y+camRad*Math.cos(camPhi); const z=camRad*Math.sin(camPhi)*Math.sin(camTheta); camera.position.set(x,y,z); camera.lookAt(camTarget);}
+renderer.domElement.addEventListener('pointerdown',e=>{dragging=true;px=e.clientX;py=e.clientY;});
+window.addEventListener('pointerup',()=>dragging=false);
+window.addEventListener('pointermove',e=>{if(!dragging)return; camTheta-=(e.clientX-px)*0.008; camPhi-=(e.clientY-py)*0.008; camPhi=Math.max(0.2,Math.min(2.7,camPhi)); px=e.clientX; py=e.clientY;});
+renderer.domElement.addEventListener('wheel',e=>{e.preventDefault(); camRad=Math.max(14,Math.min(64,camRad+e.deltaY*0.025));},{passive:false});
+renderer.domElement.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
+let explodeTarget=0,explode=0;
+const views={perspectiva:{t:0.72,p:1.08,r:30,e:0},lado:{t:0,p:1.5708,r:28,e:0},motor:{t:Math.PI*0.95,p:1.25,r:22,e:0},apoio:{t:0.5,p:1.0,r:16,e:0},explodida:{t:0.72,p:1.08,r:40,e:1}};
+document.querySelectorAll('.views button').forEach(b=>{b.addEventListener('click',()=>{const v=views[b.dataset.view]; camTheta=v.t;camPhi=v.p;camRad=v.r;explodeTarget=v.e; if(b.dataset.view==='apoio'){camTarget.set(-wheelX,-0.6,0);} else {camTarget.set(0,-0.6,0);}});});
+const camHome={t:0.72,p:1.08,r:30};
+let held=null;
+function camStep(a){const rot=0.04,zoom=0.7; if(a==='left')camTheta-=rot; else if(a==='right')camTheta+=rot; else if(a==='up')camPhi=Math.max(0.2,camPhi-rot); else if(a==='down')camPhi=Math.min(2.7,camPhi+rot); else if(a==='zin')camRad=Math.max(14,camRad-zoom); else if(a==='zout')camRad=Math.min(64,camRad+zoom); else if(a==='reset'){camTheta=camHome.t;camPhi=camHome.p;camRad=camHome.r;camTarget.set(0,-0.6,0);}}
+document.querySelectorAll('#camctl button').forEach(b=>{const a=b.dataset.cam; b.addEventListener('pointerdown',e=>{e.preventDefault(); if(a==='reset'){camStep(a);return;} held=a;}); ['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>held=null));});
+function camHeldTick(){if(held)camStep(held);}
+
+// ---- State + physics
+const S={speed:0,key:0,slot:0,seat:0,nut:0,bal:0,lock:0,dia:420,health:100,failed:false};
+const E={}; ['speed','dKey','dSlot','dSeat','dNut','dBal','lock','dia','spVal','spState','vKey','vSlot','vSeat','vNut','vBal','vDia','seatNote','lockTag','lockDesc','hRpm','hDia','hEcc','hVib','hDef','status','healthBar','healthPct','btnReset','btnReseat'].forEach(id=>E[id]=document.getElementById(id));
+const lockNames=['nenhum','contra-porca','anilha freio','patilha dobrável','cavilha'];
+const lockDescs=['Sem travamento — só aperto por atrito. Vibração desaperta com facilidade.','Segunda porca apertada contra a primeira. Trava por atrito — simples e eficaz.','Anilha de pressão/serrilhada (tipo Nord-Lock). Boa resistência à vibração.','Anilha com patilha dobrada sobre a porca. Travamento mecânico positivo.','Furo + cavilha atravessada. Não depende de atrito — não solta.'];
+const lockResist=[0,0.55,0.75,0.9,0.98];
+function pctTxt(v){return Math.round(v)+'%'}
+function cls(el,v){el.className='val'+(v>=66?' bad':v>=33?' warn':'')}
+function readControls(){
+  S.speed=+E.speed.value;S.key=+E.dKey.value;S.slot=+E.dSlot.value;S.seat=+E.dSeat.value;S.nut=+E.dNut.value;S.bal=+E.dBal.value;S.lock=+E.lock.value;
+  const nd=+E.dia.value; if(nd!==S.dia){S.dia=nd; buildCylinder(S.dia);}
+  const diaCalc=Math.round(S.dia/Math.PI);
+  E.spVal.textContent=S.speed; E.vDia.textContent=S.dia+' mm'; E.hDia.textContent=S.dia+' / Ø'+diaCalc+' mm';
+  E.vKey.textContent=pctTxt(S.key);cls(E.vKey,S.key);
+  E.vSlot.textContent=pctTxt(S.slot);cls(E.vSlot,S.slot);
+  E.vSeat.textContent=pctTxt(S.seat);cls(E.vSeat,S.seat);
+  E.vNut.textContent=pctTxt(S.nut);cls(E.vNut,S.nut);
+  E.vBal.textContent=pctTxt(S.bal);cls(E.vBal,S.bal);
+  const nShim=Math.round(S.seat/100*4);
+  E.seatNote.textContent=nShim>0?('compensado com '+nShim+' anilha'+(nShim>1?'s':'')+' extra por lado'):'';
+  E.lockTag.textContent=lockNames[S.lock]; E.lockDesc.textContent=lockDescs[S.lock];
+  [['dKey',S.key],['dSlot',S.slot],['dSeat',S.seat],['dNut',S.nut],['dBal',S.bal]].forEach(([id,v])=>{const e=document.getElementById(id); e.classList.toggle('hot',v>=33&&v<66); e.classList.toggle('crit',v>=66);});
+}
+['speed','dKey','dSlot','dSeat','dNut','dBal','lock','dia'].forEach(id=>document.getElementById(id).addEventListener('input',readControls));
+E.btnReset.addEventListener('click',()=>{['speed','dKey','dSlot','dSeat','dNut','dBal'].forEach(id=>document.getElementById(id).value=0); E.lock.value=0; S.health=100;S.failed=false;nutDrift=0; readControls();});
+E.btnReseat.addEventListener('click',()=>{S.health=100;S.failed=false;nutDrift=0;});
+
+let nutDrift=0,t=0,angle=0;
+function instability(){
+  const sp=S.speed/600, diaF=(S.dia-300)/500;
+  const eKey=(S.key/100)*(0.9+0.6*sp);
+  const eSlot=(S.slot/100)*(0.3+1.4*sp*sp);
+  const eSeat=(S.seat/100)*(0.8+0.7*sp);
+  const nutEff=Math.min(100,S.nut+nutDrift);
+  const eNut=(nutEff/100)*(0.4+1.6*sp);
+  const eBal=(S.bal/100)*(0.2+2.4*sp*sp)*(0.7+0.8*diaF);
+  const ecc=eKey+eSlot+eSeat+eNut+eBal;
+  const vib=Math.min(100,ecc*22+sp*8);
+  return {ecc,vib,sp,nutEff};
+}
+function tick(dt){
+  readLight();
+  const {ecc,vib,sp,nutEff}=instability();
+  if(sp>0.05&&!S.failed){nutDrift=Math.min(100,nutDrift+(1-lockResist[S.lock])*(vib/100)*6*dt);}
+  const tol=1.1;
+  if(ecc>tol&&sp>0.05&&!S.failed){S.health=Math.max(0,S.health-(ecc-tol)*sp*38*dt); if(S.health<=0){S.health=0;S.failed=true;}}
+  const rpmRad=(S.speed/60)*Math.PI*2; angle+=(S.failed?rpmRad*0.15:rpmRad)*dt; rotor.rotation.x=angle;
+  const wob=ecc*0.13, rattle=(S.slot/100)*0.04*Math.sin(t*40)*sp;
+  rotor.position.y=Math.sin(angle)*wob+rattle; rotor.position.z=Math.cos(angle)*wob*0.8;
+  const creep=(nutEff/100)*0.45; nutA.position.x=cylW/2+1.05+creep; nutB.position.x=cylW/2+1.45+creep*1.3;
+  bushOut.position.x=cylW/2+0.4+(nutEff/100)*0.22;
+  const seatSag=(S.seat/100)*0.12; cylGroup.position.y=-seatSag*Math.cos(angle); cylGroup.position.z=seatSag*Math.sin(angle)*0.5;
+  const nShim=Math.round(S.seat/100*4);
+  shimsOut.forEach((s,i)=>{s.visible=i<nShim; if(i<nShim)s.position.x=cylW/2+1.75+i*0.14;});
+  shimsIn.forEach((s,i)=>{s.visible=i<nShim; if(i<nShim)s.position.x=-cylW/2-1.3-i*0.14;});
+  cylGroup.rotation.z=(S.key/100)*0.05; cylGroup.rotation.y=(S.key/100)*0.035;
+  const stress=Math.min(1,ecc/2.2); stressMat.opacity=S.failed?0.9:stress*0.5;
+  matCylEngraved.emissive.setHex(0xff3030); matCylEngraved.emissiveIntensity=S.failed?0.6:stress*0.4;
+  explode+=(explodeTarget-explode)*Math.min(1,dt*4); applyExplode(explode);
+  E.hRpm.textContent=S.speed+' rpm'; E.hEcc.textContent=ecc.toFixed(2)+' mm'; E.hVib.textContent=Math.round(vib)+' %';
+  const d=[]; if(S.key)d.push('chaveta'); if(S.slot)d.push('escatel'); if(S.seat)d.push('alojamento'); if(nutEff>2)d.push('anilhas'); if(S.bal)d.push('desequil.');
+  E.hDef.textContent=d.length?d.join(', '):'nenhum';
+  E.healthBar.style.width=S.health+'%'; E.healthBar.style.background=S.health>60?'#46d39a':S.health>30?'#ffb13f':'#ff5252'; E.healthPct.textContent=Math.round(S.health)+'%';
+  let st,col;
+  if(S.failed){st='⚠ falha — montagem cedeu';col='var(--bad)';}
+  else if(S.speed===0){st='— parado —';col='var(--ink-dim)';}
+  else if(vib<25){st='estável';col='var(--ok)';}
+  else if(vib<55){st='vibração ligeira';col='var(--accent)';}
+  else if(vib<80){st='instável — a descentrar';col='var(--warn)';}
+  else{st='crítico — iminente';col='var(--bad)';}
+  E.status.textContent=st; E.status.style.color=col; E.status.style.borderColor=S.failed?'var(--bad)':'var(--line)';
+  E.spState.textContent=S.failed?'falha':(S.speed===0?'parado':'a rodar'); E.spState.className='val'+(S.failed?' bad':vib>=55?' warn':'');
+  updateAnalysis(sp, vib, dt);
+}
+
+// ---- Production-impact analysis (real-time, admin-facing)
+const WEAR_FREE=33;
+const SPD_MIN=80, SPD_MAX=140, SPD_POT=300;   // m/min: atual desta máquina vs potencial
+const REG_TOL=80;          // µm de erro de registo aceitável antes de rejeição
+const READJ_MIN=10;        // min médios por desaperto de anilhas
+const A={}; ['spdVal','spdBar','spdNote','regVal','splVal','scrapVal','clientVal','mLost','tLost','nEvents','bWear','bMaint','bOper','pctWear','pctMaint','pctOper','verdict','btnZero'].forEach(k=>A[k]=document.getElementById(k));
+// accumulators
+let acc={metersLost:0, minLost:0, events:0, lastNutOk:true, prodMeters:0};
+A.btnZero.addEventListener('click',()=>{acc={metersLost:0,minLost:0,events:0,lastNutOk:true,prodMeters:0};});
+function fmtNum(n){return n>=1000?(n/1000).toFixed(1)+'k':Math.round(n);}
+function updateAnalysis(sp, vib, dt){
+  const wScatel=S.slot/100, wAloj=S.seat/100;
+  const mRolam=S.bal/100;
+  const nutEff=Math.min(100,S.nut+nutDrift)/100;
+  const oChav=S.key/100, oAnil=nutEff;
+
+  const overScatel=Math.max(0,(S.slot-WEAR_FREE)/(100-WEAR_FREE));
+  const overAloj  =Math.max(0,(S.seat-WEAR_FREE)/(100-WEAR_FREE));
+  const wearExcess=(overScatel+overAloj)/2;
+  const wearPresent=(wScatel+wAloj)/2;
+  const blameMaint=Math.max(mRolam,wearExcess);
+  const blameOper=(oChav+oAnil)/2;
+
+  // current production speed: instability forces slow-down within 80..140 band
+  const instab=Math.min(1, vib/100);
+  const curSpd = S.speed>0 ? Math.round(SPD_MAX - (SPD_MAX-SPD_MIN)*instab) : 0;
+  A.spdVal.textContent=curSpd+' / '+SPD_POT+' m/min';
+  A.spdBar.style.width=Math.round(curSpd/SPD_POT*100)+'%';
+  A.spdBar.style.background=curSpd>=120?'#46d39a':curSpd>=100?'#ffb13f':'#ff5252';
+  A.spdNote.textContent = S.speed===0?'Parada.':(instab>0.4?'Instabilidade obriga a abrandar — capacidade perdida.':'A produzir perto do máximo possível desta máquina.');
+
+  // registration error (µm): oscillation -> colour misalignment
+  const ecc=(wearPresent*0.8 + blameMaint*0.9 + blameOper*0.9 + nutEff*0.6);
+  const regErr=Math.round(ecc*140*(0.4+0.6*sp));
+  const effErr=regErr/jobTol();   // erro efetivo conforme a tolerância do trabalho
+  A.regVal.textContent=regErr+' µm';
+  A.regVal.style.color=effErr>REG_TOL?'#ff5252':effErr>REG_TOL*0.6?'#ffb13f':'#cdd8e4';
+  // tint splashes/misses %
+  const splash=Math.round((blameOper*0.5+wearPresent*0.4+nutEff*0.5)*100*(0.5+0.5*sp));
+  A.splVal.textContent=splash+' %';
+  A.splVal.style.color=splash>25?'#ff5252':splash>12?'#ffb13f':'#cdd8e4';
+  // scrap % — uses effective error (job tolerance)
+  const scrap=Math.min(100, Math.round((Math.max(0,effErr-REG_TOL)/REG_TOL*40) + splash*0.8/jobTol()));
+  A.scrapVal.textContent=scrap+' %';
+  A.scrapVal.style.color=scrap>20?'#ff5252':scrap>8?'#ffb13f':'#cdd8e4';
+  // client acceptance — job-dependent
+  const reject = effErr>REG_TOL || splash/jobTol()>25;
+  A.clientVal.textContent=reject?'REJEITA':'OK';
+  A.clientVal.style.color=reject?'#ff5252':'#46d39a';
+
+  // accumulate losses while running
+  if(S.speed>0 && !S.failed){
+    const metersThisFrame=curSpd/60*dt;           // m produced this frame
+    acc.prodMeters+=metersThisFrame;
+    acc.metersLost+=metersThisFrame*(scrap/100);  // scrapped meters
+    // anilhas desaperto event: when nutDrift crosses a threshold -> reafinação
+    const nutNowLoose=(S.nut+nutDrift)>55;
+    if(nutNowLoose && acc.lastNutOk){
+      acc.events+=1; acc.minLost+=READJ_MIN;
+      acc.metersLost+=curSpd*READJ_MIN;           // meters lost during the stop+rearranque
+      acc.lastNutOk=false;
+    }
+    if((S.nut+nutDrift)<40) acc.lastNutOk=true;    // reset arm when retightened/low
+  }
+  A.mLost.textContent=fmtNum(acc.metersLost)+' m';
+  A.tLost.textContent=Math.round(acc.minLost)+' min';
+  A.nEvents.textContent=acc.events+'×';
+
+  // blame split of lost meters
+  const cWear=wearPresent<=WEAR_FREE/100?0:(wearPresent-WEAR_FREE/100);
+  let sum=cWear+blameMaint+blameOper; if(sum<=0)sum=1;
+  const pW=Math.round(cWear/sum*100), pM=Math.round(blameMaint/sum*100), pO=Math.round(blameOper/sum*100);
+  A.bWear.style.width=pW+'%'; A.bMaint.style.width=pM+'%'; A.bOper.style.width=pO+'%';
+  A.pctWear.textContent=pW+'%'; A.pctMaint.textContent=pM+'%'; A.pctOper.textContent=pO+'%';
+
+  // verdict (admin language)
+  let v;
+  const anyDefect=(S.slot+S.seat+S.bal+S.key+S.nut)>2 || nutDrift>2;
+  if(S.speed===0){ v='Dá rotação para simular uma tiragem e ver o impacto em metros e tempo.'; }
+  else if(!anyDefect){ v='Peças em bom estado e montagem limpa: registo dentro de tolerância, sem refugo. <b>É este o cenário que a manutenção preventiva mantém.</b>'; }
+  else {
+    const main=Math.max(cWear,blameMaint,blameOper);
+    let head;
+    if(main===blameOper && blameOper>0) head='Perdas dominadas pelo <b style="color:#ffb13f">operador</b> (chaveta/anilhas).';
+    else if(main===blameMaint && blameMaint>0) head='Perdas dominadas pela <b style="color:#4cc2ff">manutenção</b> (rolamentos / desgaste não tratado).';
+    else head='Perdas dominadas pelo <b style="color:#8a97a6">desgaste</b> do material.';
+    v=head;
+    if(reject) v+=' <br><b style="color:#ff5252">Cliente rejeita o lote</b> — registo/manchas fora de tolerância.';
+    if(acc.events>0) v+=' <br>Cada desaperto de anilhas custou ~'+READJ_MIN+' min de reafinação.';
+    if(blameOper<0.2 && (blameMaint>0.5||cWear>0.4)) v+=' <br><i>Mesmo com boa montagem, o desgaste sozinho já gera refugo — só manutenção resolve.</i>';
+  }
+  A.verdict.innerHTML=v;
+  drawRegistration(regErr, sp, vib);
+}
+
+// ---- Colour proof with 3 jobs (different registration tolerance)
+const regCv=document.getElementById('regCanvas'), regCtx=regCv.getContext('2d');
+const regFootErr=document.getElementById('regFootErr'), regFootState=document.getElementById('regFootState'), regFootTol=document.getElementById('regFootTol'), regJobName=document.getElementById('regJobName');
+// tolerance multiplier: how much this job tolerates misregistration (higher = more forgiving)
+const JOBS=[
+  {name:'ObaniA',    tol:1.0, label:'apertada'},   // text + pantone + bars: unforgiving
+  {name:'Bolachas',  tol:1.8, label:'média'},      // image, red bg + white: medium
+  {name:'3 Pantones',tol:3.0, label:'larga'}       // big flat colours: very forgiving
+];
+let curJob=0;
+document.querySelectorAll('.jobBtn').forEach(b=>{
+  b.addEventListener('click',()=>{ curJob=+b.dataset.job; document.querySelectorAll('.jobBtn').forEach(x=>x.classList.toggle('on',x===b)); regJobName.textContent=JOBS[curJob].name; });
+});
+// expose effective tolerance so scrap/rejection uses it too
+function jobTol(){return JOBS[curJob].tol;}
+let regPhase=0;
+function drawRegistration(regErr, sp, vib){
+  const W=regCv.width,H=regCv.height;
+  regCtx.clearRect(0,0,W,H);
+  regPhase += 0.15 + sp*0.5;
+  const base=Math.min(22, regErr/8);
+  const osc=(vib/100)*6;
+  function offv(ang,i){const a=ang+regPhase*0.1; const amp=base+osc*(0.5+0.5*Math.sin(regPhase+i)); return {dx:Math.cos(a)*amp, dy:Math.sin(a)*amp};}
+  if(curJob===0) drawJobObania(W,H,offv);
+  else if(curJob===1) drawJobBolachas(W,H,offv);
+  else drawJobPantones(W,H,offv);
+  // footer — effective error scaled by job tolerance
+  const effErr=Math.round(regErr/JOBS[curJob].tol);
+  regFootErr.textContent=regErr+' µm';
+  regFootTol.textContent=JOBS[curJob].label;
+  const st=effErr>REG_TOL?'registo aberto':effErr>REG_TOL*0.6?'a oscilar':'alinhado';
+  regFootState.textContent=st;
+  regFootState.style.color=effErr>REG_TOL?'#ff5252':effErr>REG_TOL*0.6?'#ffb13f':'#46d39a';
+}
+// JOB 1: ObaniA — pantone + bg + white, word + control bars + reg cross (tight)
+// shared margin: registration cross + control squares (100%/50%) present in ALL jobs
+function drawMargin(W,H,offv,inks){
+  // registration cross top-left, each ink offset
+  function cross(cx,cy,dx,dy,col,lw){regCtx.strokeStyle=col;regCtx.lineWidth=lw;regCtx.beginPath();regCtx.moveTo(cx+dx-15,cy+dy);regCtx.lineTo(cx+dx+15,cy+dy);regCtx.moveTo(cx+dx,cy+dy-15);regCtx.lineTo(cx+dx,cy+dy+15);regCtx.stroke();regCtx.beginPath();regCtx.arc(cx+dx,cy+dy,7,0,Math.PI*2);regCtx.stroke();}
+  regCtx.globalCompositeOperation='multiply';
+  inks.forEach((ink,i)=>{const o=offv(ink.a,i); if(ink.w){regCtx.globalCompositeOperation='source-over';cross(34,30,o.dx,o.dy,ink.solid,2.6);regCtx.globalCompositeOperation='multiply';}else cross(34,30,o.dx,o.dy,ink.solid,1.5);});
+  regCtx.globalCompositeOperation='source-over';
+  // control squares: 100% (top) and 50% (bottom) for each ink, with per-ink offset
+  inks.forEach((ink,i)=>{ const o=offv(ink.a,i); const x=W-18-(inks.length-1-i)*22;
+    regCtx.globalAlpha=1; regCtx.fillStyle=ink.solid; regCtx.fillRect(x+o.dx,10+o.dy,16,14);
+    regCtx.globalAlpha=0.5; regCtx.fillRect(x+o.dx,26+o.dy,16,14); });
+  regCtx.globalAlpha=1;
+}
+// JOB 1: ObaniA — pantone + fundo + branco + texto (tolerância apertada)
+function drawJobObania(W,H,offv){
+  regCtx.fillStyle='#efe9dd'; regCtx.fillRect(0,0,W,H);
+  const inks=[{solid:'rgba(0,140,190,0.85)',a:0.0},{solid:'rgba(220,30,110,0.85)',a:2.1},{solid:'rgba(20,20,20,0.9)',a:1.0},{solid:'rgba(255,255,255,0.95)',a:3.1,w:true}];
+  drawMargin(W,H,offv,inks);
+  regCtx.globalCompositeOperation='multiply'; regCtx.font='bold 40px Georgia, serif'; regCtx.textAlign='center'; regCtx.textBaseline='middle';
+  [inks[0],inks[1],inks[2]].forEach((ink,i)=>{const o=offv(ink.a,i); regCtx.fillStyle=ink.solid; regCtx.fillText('ObaniA', W/2+o.dx, H*0.66+o.dy);});
+  regCtx.globalCompositeOperation='source-over';
+}
+// JOB 2: Bolachas — embalagem: fundo Pantone vermelho, bolacha em CMYK, texto a branco do substrato, contornos a preto (tolerância média)
+function drawJobBolachas(W,H,offv){
+  // white substrate base
+  regCtx.fillStyle='#f4f1e8'; regCtx.fillRect(0,0,W,H);
+  // Pantone red background (offset as its own plate)
+  const oR=offv(1.2,0); regCtx.fillStyle='rgba(200,40,45,0.92)'; regCtx.fillRect(6+oR.dx,6+oR.dy,W-12,H-12);
+  // biscuit built from CMYK process inks (each offset slightly -> ghosting when misreg)
+  const cx=W/2, cy=H*0.46, R=30;
+  const oY=offv(4.2,1), oM=offv(2.1,2), oC=offv(0.0,3), oK=offv(1.0,4);
+  regCtx.globalCompositeOperation='multiply';
+  regCtx.fillStyle='rgba(245,230,0,0.8)';  regCtx.beginPath(); regCtx.arc(cx+oY.dx,cy+oY.dy,R,0,Math.PI*2); regCtx.fill();      // Y
+  regCtx.fillStyle='rgba(225,90,40,0.55)'; regCtx.beginPath(); regCtx.arc(cx+oM.dx,cy+oM.dy,R,0,Math.PI*2); regCtx.fill();      // M (warm brown)
+  regCtx.fillStyle='rgba(120,200,210,0.30)';regCtx.beginPath(); regCtx.arc(cx+oC.dx,cy+oC.dy,R,0,Math.PI*2); regCtx.fill();     // C (shade)
+  // chocolate chips + black outline (K)
+  regCtx.fillStyle='rgba(40,25,15,0.85)';
+  for(let i=0;i<6;i++){const a=i/6*Math.PI*2+0.4; regCtx.beginPath(); regCtx.arc(cx+oK.dx+Math.cos(a)*14,cy+oK.dy+Math.sin(a)*14,3,0,Math.PI*2); regCtx.fill();}
+  regCtx.globalCompositeOperation='source-over';
+  regCtx.strokeStyle='rgba(20,15,10,0.9)'; regCtx.lineWidth=2; regCtx.beginPath(); regCtx.arc(cx+oK.dx,cy+oK.dy,R,0,Math.PI*2); regCtx.stroke(); // K outline
+  // "Bolachas" reversed out to white substrate (knockout): draw white text
+  const oW=offv(3.1,0); regCtx.fillStyle='#f4f1e8'; regCtx.font='bold 30px Georgia, serif'; regCtx.textAlign='center'; regCtx.textBaseline='middle';
+  regCtx.fillText('Bolachas', W/2+oW.dx, H*0.78+oW.dy);
+  // black outline on the lettering (K) to show misreg on text edges
+  regCtx.strokeStyle='rgba(20,15,10,0.85)'; regCtx.lineWidth=0.8; regCtx.strokeText('Bolachas', W/2+oK.dx, H*0.78+oK.dy);
+  // margin marks (CMYK + white)
+  const inks=[{solid:'rgba(0,150,200,0.85)',a:0.0},{solid:'rgba(225,30,90,0.85)',a:2.1},{solid:'rgba(245,225,0,0.85)',a:4.2},{solid:'rgba(20,20,20,0.9)',a:1.0},{solid:'rgba(255,255,255,0.95)',a:3.1,w:true}];
+  drawMargin(W,H,offv,inks);
+}
+// JOB 3: 3 Pantones — big flat bands (tolerância larga)
+function drawJobPantones(W,H,offv){
+  regCtx.fillStyle='#efe9dd'; regCtx.fillRect(0,0,W,H);
+  const cols=[{solid:'#1f7a5a',a:0.0},{solid:'#2b4b8c',a:2.1},{solid:'#c8862b',a:1.0}];
+  cols.forEach((p,i)=>{ const o=offv(p.a,i); regCtx.fillStyle=p.solid; regCtx.fillRect(o.dx, H*0.16+ (H*0.6)/3*i + o.dy, W, (H*0.6)/3+1); });
+  const oW=offv(3.1,3); regCtx.fillStyle='rgba(255,255,255,0.95)'; regCtx.font='bold 24px Georgia, serif'; regCtx.textAlign='center'; regCtx.textBaseline='middle';
+  regCtx.fillText('ObaniA', W/2+oW.dx, H*0.46+oW.dy);
+  const inks=[cols[0],cols[1],cols[2],{solid:'rgba(255,255,255,0.95)',a:3.1,w:true}];
+  drawMargin(W,H,offv,inks);
+}
+function applyExplode(e){
+  fixedPiece.position.x=-1.0*e;
+  bushIn.position.x=-cylW/2-0.4-1.6*e;
+  bushOut.position.x=cylW/2+0.4+(nutDrift/100)*0.22+1.6*e;
+  nutA.position.x=cylW/2+1.05+(S.nut/100)*0.45+2.6*e;
+  nutB.position.x=cylW/2+1.45+(S.nut/100)*0.6+3.4*e;
+  dogGroup.position.x=-1.4*e;
+}
+function readLight(){S.speed=+E.speed.value;S.key=+E.dKey.value;S.slot=+E.dSlot.value;S.seat=+E.dSeat.value;S.nut=+E.dNut.value;S.bal=+E.dBal.value;S.lock=+E.lock.value;E.spVal.textContent=S.speed;}
+
+let last=performance.now();
+function loop(now){const dt=Math.min(0.05,(now-last)/1000); last=now; t+=dt; camHeldTick(); tick(dt); updateCam(); renderer.render(scene,camera); requestAnimationFrame(loop);}
+resize(); readControls(); updateCam(); requestAnimationFrame(loop);
+</script>
+</body>
+</html>
