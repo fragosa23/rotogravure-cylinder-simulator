@@ -207,9 +207,12 @@
     <div class="sec">
       <h2>Defeitos · severidade</h2>
       <div class="ctrl">
-        <div class="lbl"><span class="name">Chaveta mal assente<span class="orig oper">operador</span></span><span class="val" id="vKey">0%</span></div>
-        <input type="range" id="dKey" min="0" max="100" value="0">
-        <div class="desc">Cilindro "encavalitado" sobre a chaveta — apoia torto desde a montagem.</div>
+        <div class="lbl"><span class="name">Chaveta mal assente<span class="orig oper">operador</span></span></div>
+        <div class="desc" style="margin-top:0;margin-bottom:8px">Cilindro "encavalitado" sobre a chaveta — apoia torto desde a montagem. Pode estar bem assente de um lado e mal do outro.</div>
+        <div class="lbl"><span class="name" style="font-size:11px">Lado dentro (motor)</span><span class="val" id="vKeyIn">0%</span></div>
+        <input type="range" id="dKeyIn" min="0" max="100" value="0">
+        <div class="lbl" style="margin-top:9px"><span class="name" style="font-size:11px">Lado fora</span><span class="val" id="vKeyOut">0%</span></div>
+        <input type="range" id="dKeyOut" min="0" max="100" value="0">
       </div>
       <div class="ctrl">
         <div class="lbl"><span class="name">Escatel gasto<span class="orig wear">desgaste</span></span><span class="val" id="vSlot">0%</span></div>
@@ -476,19 +479,20 @@ document.querySelectorAll('#camctl button').forEach(b=>{const a=b.dataset.cam; b
 function camHeldTick(){if(held)camStep(held);}
 
 // ---- State + physics
-const S={speed:0,key:0,slot:0,seat:0,nut:0,bal:0,lock:0,dia:420,health:100,failed:false};
-const E={}; ['speed','dKey','dSlot','dSeat','dNut','dBal','lock','dia','spVal','spState','vKey','vSlot','vSeat','vNut','vBal','vDia','seatNote','lockTag','lockDesc','hRpm','hDia','hEcc','hVib','hDef','status','healthBar','healthPct','btnReset','btnReseat'].forEach(id=>E[id]=document.getElementById(id));
+const S={speed:0,keyIn:0,keyOut:0,slot:0,seat:0,nut:0,bal:0,lock:0,dia:420,health:100,failed:false};
+const E={}; ['speed','dKeyIn','dKeyOut','dSlot','dSeat','dNut','dBal','lock','dia','spVal','spState','vKeyIn','vKeyOut','vSlot','vSeat','vNut','vBal','vDia','seatNote','lockTag','lockDesc','hRpm','hDia','hEcc','hVib','hDef','status','healthBar','healthPct','btnReset','btnReseat'].forEach(id=>E[id]=document.getElementById(id));
 const lockNames=['nenhum','contra-porca','anilha freio','patilha dobrável','cavilha'];
 const lockDescs=['Sem travamento — só aperto por atrito. Vibração desaperta com facilidade.','Segunda porca apertada contra a primeira. Trava por atrito — simples e eficaz.','Anilha de pressão/serrilhada (tipo Nord-Lock). Boa resistência à vibração.','Anilha com patilha dobrada sobre a porca. Travamento mecânico positivo.','Furo + cavilha atravessada. Não depende de atrito — não solta.'];
 const lockResist=[0,0.55,0.75,0.9,0.98];
 function pctTxt(v){return Math.round(v)+'%'}
 function cls(el,v){el.className='val'+(v>=66?' bad':v>=33?' warn':'')}
 function readControls(){
-  S.speed=+E.speed.value;S.key=+E.dKey.value;S.slot=+E.dSlot.value;S.seat=+E.dSeat.value;S.nut=+E.dNut.value;S.bal=+E.dBal.value;S.lock=+E.lock.value;
+  S.speed=+E.speed.value;S.keyIn=+E.dKeyIn.value;S.keyOut=+E.dKeyOut.value;S.slot=+E.dSlot.value;S.seat=+E.dSeat.value;S.nut=+E.dNut.value;S.bal=+E.dBal.value;S.lock=+E.lock.value;
   const nd=+E.dia.value; if(nd!==S.dia){S.dia=nd; buildCylinder(S.dia);}
   const diaCalc=Math.round(S.dia/Math.PI);
   E.spVal.textContent=S.speed; E.vDia.textContent=S.dia+' mm'; E.hDia.textContent=S.dia+' / Ø'+diaCalc+' mm';
-  E.vKey.textContent=pctTxt(S.key);cls(E.vKey,S.key);
+  E.vKeyIn.textContent=pctTxt(S.keyIn);cls(E.vKeyIn,S.keyIn);
+  E.vKeyOut.textContent=pctTxt(S.keyOut);cls(E.vKeyOut,S.keyOut);
   E.vSlot.textContent=pctTxt(S.slot);cls(E.vSlot,S.slot);
   E.vSeat.textContent=pctTxt(S.seat);cls(E.vSeat,S.seat);
   E.vNut.textContent=pctTxt(S.nut);cls(E.vNut,S.nut);
@@ -496,16 +500,17 @@ function readControls(){
   const nShim=Math.round(S.seat/100*4);
   E.seatNote.textContent=nShim>0?('compensado com '+nShim+' anilha'+(nShim>1?'s':'')+' extra por lado'):'';
   E.lockTag.textContent=lockNames[S.lock]; E.lockDesc.textContent=lockDescs[S.lock];
-  [['dKey',S.key],['dSlot',S.slot],['dSeat',S.seat],['dNut',S.nut],['dBal',S.bal]].forEach(([id,v])=>{const e=document.getElementById(id); e.classList.toggle('hot',v>=33&&v<66); e.classList.toggle('crit',v>=66);});
+  [['dKeyIn',S.keyIn],['dKeyOut',S.keyOut],['dSlot',S.slot],['dSeat',S.seat],['dNut',S.nut],['dBal',S.bal]].forEach(([id,v])=>{const e=document.getElementById(id); e.classList.toggle('hot',v>=33&&v<66); e.classList.toggle('crit',v>=66);});
 }
-['speed','dKey','dSlot','dSeat','dNut','dBal','lock','dia'].forEach(id=>document.getElementById(id).addEventListener('input',readControls));
-E.btnReset.addEventListener('click',()=>{['speed','dKey','dSlot','dSeat','dNut','dBal'].forEach(id=>document.getElementById(id).value=0); E.lock.value=0; S.health=100;S.failed=false;nutDrift=0; readControls();});
+['speed','dKeyIn','dKeyOut','dSlot','dSeat','dNut','dBal','lock','dia'].forEach(id=>document.getElementById(id).addEventListener('input',readControls));
+E.btnReset.addEventListener('click',()=>{['speed','dKeyIn','dKeyOut','dSlot','dSeat','dNut','dBal'].forEach(id=>document.getElementById(id).value=0); E.lock.value=0; S.health=100;S.failed=false;nutDrift=0; readControls();});
 E.btnReseat.addEventListener('click',()=>{S.health=100;S.failed=false;nutDrift=0;});
 
 let nutDrift=0,t=0,angle=0;
 function instability(){
   const sp=S.speed/600, diaF=(S.dia-300)/500;
-  const eKey=(S.key/100)*(0.9+0.6*sp);
+  const keyAvg=(S.keyIn+S.keyOut)/2, keyTilt=Math.abs(S.keyIn-S.keyOut);
+  const eKey=(keyAvg/100)*(0.9+0.6*sp)+(keyTilt/100)*(0.35+0.45*sp);
   const eSlot=(S.slot/100)*(0.3+1.4*sp*sp);
   const eSeat=(S.seat/100)*(0.8+0.7*sp);
   const nutEff=Math.min(100,S.nut+nutDrift);
@@ -530,12 +535,13 @@ function tick(dt){
   const nShim=Math.round(S.seat/100*4);
   shimsOut.forEach((s,i)=>{s.visible=i<nShim; if(i<nShim)s.position.x=cylW/2+1.75+i*0.14;});
   shimsIn.forEach((s,i)=>{s.visible=i<nShim; if(i<nShim)s.position.x=-cylW/2-1.3-i*0.14;});
-  cylGroup.rotation.z=(S.key/100)*0.05; cylGroup.rotation.y=(S.key/100)*0.035;
+  const keyAvgV=(S.keyIn+S.keyOut)/2, keyDiffV=(S.keyIn-S.keyOut);
+  cylGroup.rotation.z=(keyDiffV/100)*0.06+(keyAvgV/100)*0.02; cylGroup.rotation.y=(keyDiffV/100)*0.045;
   const stress=Math.min(1,ecc/2.2); stressMat.opacity=S.failed?0.9:stress*0.5;
   matCylEngraved.emissive.setHex(0xff3030); matCylEngraved.emissiveIntensity=S.failed?0.6:stress*0.4;
   explode+=(explodeTarget-explode)*Math.min(1,dt*4); applyExplode(explode);
   E.hRpm.textContent=S.speed+' rpm'; E.hEcc.textContent=ecc.toFixed(2)+' mm'; E.hVib.textContent=Math.round(vib)+' %';
-  const d=[]; if(S.key)d.push('chaveta'); if(S.slot)d.push('escatel'); if(S.seat)d.push('alojamento'); if(nutEff>2)d.push('anilhas'); if(S.bal)d.push('desequil.');
+  const d=[]; if(S.keyIn||S.keyOut)d.push('chaveta'); if(S.slot)d.push('escatel'); if(S.seat)d.push('alojamento'); if(nutEff>2)d.push('anilhas'); if(S.bal)d.push('desequil.');
   E.hDef.textContent=d.length?d.join(', '):'nenhum';
   E.healthBar.style.width=S.health+'%'; E.healthBar.style.background=S.health>60?'#46d39a':S.health>30?'#ffb13f':'#ff5252'; E.healthPct.textContent=Math.round(S.health)+'%';
   let st,col;
@@ -564,7 +570,7 @@ function updateAnalysis(sp, vib, dt){
   const wScatel=S.slot/100, wAloj=S.seat/100;
   const mRolam=S.bal/100;
   const nutEff=Math.min(100,S.nut+nutDrift)/100;
-  const oChav=S.key/100, oAnil=nutEff;
+  const oChav=((S.keyIn+S.keyOut)/2)/100, oAnil=nutEff;
 
   const overScatel=Math.max(0,(S.slot-WEAR_FREE)/(100-WEAR_FREE));
   const overAloj  =Math.max(0,(S.seat-WEAR_FREE)/(100-WEAR_FREE));
@@ -627,7 +633,7 @@ function updateAnalysis(sp, vib, dt){
 
   // verdict (admin language)
   let v;
-  const anyDefect=(S.slot+S.seat+S.bal+S.key+S.nut)>2 || nutDrift>2;
+  const anyDefect=(S.slot+S.seat+S.bal+S.keyIn+S.keyOut+S.nut)>2 || nutDrift>2;
   if(S.speed===0){ v='Dá rotação para simular uma tiragem e ver o impacto em metros e tempo.'; }
   else if(!anyDefect){ v='Peças em bom estado e montagem limpa: registo dentro de tolerância, sem refugo. <b>É este o cenário que a manutenção preventiva mantém.</b>'; }
   else {
@@ -747,7 +753,7 @@ function applyExplode(e){
   nutB.position.x=cylW/2+1.45+(S.nut/100)*0.6+3.4*e;
   dogGroup.position.x=-1.4*e;
 }
-function readLight(){S.speed=+E.speed.value;S.key=+E.dKey.value;S.slot=+E.dSlot.value;S.seat=+E.dSeat.value;S.nut=+E.dNut.value;S.bal=+E.dBal.value;S.lock=+E.lock.value;E.spVal.textContent=S.speed;}
+function readLight(){S.speed=+E.speed.value;S.keyIn=+E.dKeyIn.value;S.keyOut=+E.dKeyOut.value;S.slot=+E.dSlot.value;S.seat=+E.dSeat.value;S.nut=+E.dNut.value;S.bal=+E.dBal.value;S.lock=+E.lock.value;E.spVal.textContent=S.speed;}
 
 let last=performance.now();
 function loop(now){const dt=Math.min(0.05,(now-last)/1000); last=now; t+=dt; camHeldTick(); tick(dt); updateCam(); renderer.render(scene,camera); requestAnimationFrame(loop);}
