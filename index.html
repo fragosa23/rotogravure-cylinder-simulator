@@ -704,14 +704,15 @@ document.querySelectorAll('.jobBtn').forEach(b=>{
 });
 // expose effective tolerance so scrap/rejection uses it too
 function jobTol(){return JOBS[curJob].tol;}
-let regPhase=0;
+// rounded-rect helper for the packaging label
+function rrect(x,y,w,h,r){regCtx.beginPath();regCtx.moveTo(x+r,y);regCtx.arcTo(x+w,y,x+w,y+h,r);regCtx.arcTo(x+w,y+h,x,y+h,r);regCtx.arcTo(x,y+h,x,y,r);regCtx.arcTo(x,y,x+w,y,r);regCtx.closePath();}
 function drawRegistration(regErr, sp, vib){
   const W=regCv.width,H=regCv.height;
   regCtx.clearRect(0,0,W,H);
-  regPhase += 0.15 + sp*0.5;
   const base=Math.min(22, regErr/8);
-  const osc=(vib/100)*6;
-  function offv(ang,i){const a=ang+regPhase*0.1; const amp=base+osc*(0.5+0.5*Math.sin(regPhase+i)); return {dx:Math.cos(a)*amp, dy:Math.sin(a)*amp};}
+  // oscilação síncrona com a rotação do cilindro (1×/volta): segue as rpm e fica ESTÁTICA com a máquina parada.
+  // amplitude oscila ± (pode inverter -> doubling); cada tinta com fase própria para não alinharem todas.
+  function offv(ang,i){const amp=base*Math.sin(angle+i*0.7); return {dx:Math.cos(ang)*amp, dy:Math.sin(ang)*amp};}
   if(curJob===0) drawJobObania(W,H,offv);
   else if(curJob===1) drawJobBolachas(W,H,offv);
   else drawJobPantones(W,H,offv);
@@ -746,30 +747,42 @@ function drawJobObania(W,H,offv){
   [inks[0],inks[1],inks[2]].forEach((ink,i)=>{const o=offv(ink.a,i); regCtx.fillStyle=ink.solid; regCtx.fillText('ObaniA', W/2+o.dx, H*0.66+o.dy);});
   regCtx.globalCompositeOperation='source-over';
 }
-// JOB 2: Bolachas — embalagem: fundo Pantone vermelho, bolacha em CMYK, texto a branco do substrato, contornos a preto (tolerância média)
+// JOB 2: Bolachas — embalagem real: fundo Pantone vermelho, moldura dourada, bolacha (CMYK) com pepitas e furos, rótulo creme com o nome (tolerância média)
 function drawJobBolachas(W,H,offv){
-  // white substrate base
+  // substrato branco
   regCtx.fillStyle='#f4f1e8'; regCtx.fillRect(0,0,W,H);
-  // Pantone red background (offset as its own plate)
-  const oR=offv(1.2,0); regCtx.fillStyle='rgba(200,40,45,0.92)'; regCtx.fillRect(6+oR.dx,6+oR.dy,W-12,H-12);
-  // biscuit built from CMYK process inks (each offset slightly -> ghosting when misreg)
-  const cx=W/2, cy=H*0.46, R=30;
-  const oY=offv(4.2,1), oM=offv(2.1,2), oC=offv(0.0,3), oK=offv(1.0,4);
+  // fundo vermelho da embalagem (plate vermelho próprio)
+  const oR=offv(1.2,0);
+  regCtx.fillStyle='#c4202a'; regCtx.fillRect(6+oR.dx,6+oR.dy,W-12,H-12);
+  // moldura dourada
+  regCtx.strokeStyle='rgba(240,205,110,0.95)'; regCtx.lineWidth=3; regCtx.strokeRect(15+oR.dx,15+oR.dy,W-30,H-30);
+  // bolacha em processo (cada plate com offset -> ghosting no desregisto)
+  const cx=W*0.5, cy=H*0.42, R=36;
+  const oY=offv(4.2,1), oM=offv(2.1,2), oK=offv(1.0,4);
   regCtx.globalCompositeOperation='multiply';
-  regCtx.fillStyle='rgba(245,230,0,0.8)';  regCtx.beginPath(); regCtx.arc(cx+oY.dx,cy+oY.dy,R,0,Math.PI*2); regCtx.fill();      // Y
-  regCtx.fillStyle='rgba(225,90,40,0.55)'; regCtx.beginPath(); regCtx.arc(cx+oM.dx,cy+oM.dy,R,0,Math.PI*2); regCtx.fill();      // M (warm brown)
-  regCtx.fillStyle='rgba(120,200,210,0.30)';regCtx.beginPath(); regCtx.arc(cx+oC.dx,cy+oC.dy,R,0,Math.PI*2); regCtx.fill();     // C (shade)
-  // chocolate chips + black outline (K)
-  regCtx.fillStyle='rgba(40,25,15,0.85)';
-  for(let i=0;i<6;i++){const a=i/6*Math.PI*2+0.4; regCtx.beginPath(); regCtx.arc(cx+oK.dx+Math.cos(a)*14,cy+oK.dy+Math.sin(a)*14,3,0,Math.PI*2); regCtx.fill();}
+  regCtx.fillStyle='#e7b84e'; regCtx.beginPath(); regCtx.arc(cx+oY.dx,cy+oY.dy,R,0,Math.PI*2); regCtx.fill();            // massa dourada (Y)
+  regCtx.fillStyle='rgba(188,108,42,0.55)'; regCtx.beginPath(); regCtx.arc(cx+oM.dx,cy+oM.dy,R*0.98,0,Math.PI*2); regCtx.fill(); // tostado (M)
   regCtx.globalCompositeOperation='source-over';
-  regCtx.strokeStyle='rgba(20,15,10,0.9)'; regCtx.lineWidth=2; regCtx.beginPath(); regCtx.arc(cx+oK.dx,cy+oK.dy,R,0,Math.PI*2); regCtx.stroke(); // K outline
-  // "Bolachas" reversed out to white substrate (knockout): draw white text
-  const oW=offv(3.1,0); regCtx.fillStyle='#f4f1e8'; regCtx.font='bold 30px Georgia, serif'; regCtx.textAlign='center'; regCtx.textBaseline='middle';
-  regCtx.fillText('Bolachas', W/2+oW.dx, H*0.78+oW.dy);
-  // black outline on the lettering (K) to show misreg on text edges
-  regCtx.strokeStyle='rgba(20,15,10,0.85)'; regCtx.lineWidth=0.8; regCtx.strokeText('Bolachas', W/2+oK.dx, H*0.78+oK.dy);
-  // margin marks (CMYK + white)
+  // contorno da bolacha (K)
+  regCtx.strokeStyle='rgba(60,36,18,0.85)'; regCtx.lineWidth=2.2; regCtx.beginPath(); regCtx.arc(cx+oK.dx,cy+oK.dy,R,0,Math.PI*2); regCtx.stroke();
+  // furos de cozedura ao centro (K)
+  regCtx.fillStyle='rgba(70,44,22,0.7)';
+  for(let i=0;i<5;i++){const a=i/5*Math.PI*2; regCtx.beginPath(); regCtx.arc(cx+oK.dx+Math.cos(a)*7, cy+oK.dy+Math.sin(a)*7, 1.6,0,Math.PI*2); regCtx.fill();}
+  // pepitas de chocolate (K)
+  regCtx.fillStyle='#3a2412';
+  for(let i=0;i<7;i++){const a=i/7*Math.PI*2+0.35, rr=R*0.6; regCtx.beginPath(); regCtx.arc(cx+oK.dx+Math.cos(a)*rr, cy+oK.dy+Math.sin(a)*rr, 3.4,0,Math.PI*2); regCtx.fill();}
+  // rótulo creme com o nome
+  const oW=offv(3.1,0), bw=W*0.66, bh=36, bx=W/2-bw/2, by=H*0.72;
+  regCtx.fillStyle='#f6efe0'; rrect(bx+oW.dx,by+oW.dy,bw,bh,9); regCtx.fill();
+  regCtx.strokeStyle='rgba(240,205,110,0.9)'; regCtx.lineWidth=1.5; rrect(bx+oW.dx,by+oW.dy,bw,bh,9); regCtx.stroke();
+  regCtx.fillStyle='#b81f28'; regCtx.font='bold 23px Georgia, serif'; regCtx.textAlign='center'; regCtx.textBaseline='middle';
+  regCtx.fillText('Bolachas', W/2+oW.dx, by+bh*0.4+oW.dy);
+  regCtx.fillStyle='#7a5a2a'; regCtx.font='italic 10px Georgia, serif';
+  regCtx.fillText('com pepitas de chocolate', W/2+oW.dx, by+bh*0.8+oW.dy);
+  // contorno preto do nome (K) para evidenciar desregisto nas letras
+  regCtx.strokeStyle='rgba(20,15,10,0.5)'; regCtx.lineWidth=0.6; regCtx.font='bold 23px Georgia, serif';
+  regCtx.strokeText('Bolachas', W/2+oK.dx, by+bh*0.4+oK.dy);
+  // marcas de margem (CMYK + branco)
   const inks=[{solid:'rgba(0,150,200,0.85)',a:0.0},{solid:'rgba(225,30,90,0.85)',a:2.1},{solid:'rgba(245,225,0,0.85)',a:4.2},{solid:'rgba(20,20,20,0.9)',a:1.0},{solid:'rgba(255,255,255,0.95)',a:3.1,w:true}];
   drawMargin(W,H,offv,inks);
 }
