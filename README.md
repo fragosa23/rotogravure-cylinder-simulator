@@ -1,8 +1,14 @@
-# Simulador — Corpo de Impressão Rotogravura
+# Simulação — Efeito Junker em Cilindros de Rotogravura
 
 Simulação interativa 3D (web) que demonstra **os problemas causados por uma má
 montagem de um cilindro de rotogravura e pela falta de manutenção preventiva ao
 longo de um trabalho do dia a dia**.
+
+O foco é o **efeito Junker** — o *auto-desaperto de elementos roscados por
+vibração transversal*, um fenómeno comprovado pela física: quando o escatel ou a
+chaveta estão gastos/mal engatados, o cilindro roda "encavalitado", dá um golpe
+radial a cada volta e esse golpe vai **desapertando as porcas sozinho**, mesmo
+que tenham sido bem apertadas na montagem.
 
 O objetivo é didático: mostrar, em linguagem de produção, como pequenos defeitos
 de montagem e o desgaste não tratado se traduzem em **metros de material
@@ -28,11 +34,17 @@ com as duas anilhas — e deixa-te:
 - **Variar a velocidade** (rpm) e o **perímetro/Ø** do cilindro.
 - **Introduzir defeitos** com severidade 0–100%, cada um identificado pela sua
   origem:
-  - Chaveta mal assente — *operador*
+  - Chaveta mal assente (escatel da bucha) — *operador* — **lado dentro e lado
+    fora independentes**, porque pode estar bem assente de um lado e mal do outro
   - Escatel gasto — *desgaste*
   - Alojamento alargado — *desgaste*
-  - Anilhas desapertadas — *operador*
+  - Anilhas · folga inicial — *operador* — o aperto com que saíram da montagem
   - Folga nos rolamentos — *manutenção*
+
+> **Demonstração do efeito Junker:** deixa a folga inicial das anilhas a 0%
+> (bem apertadas) e vai subindo o escatel gasto ou a chaveta mal assente. Com a
+> máquina a rodar, vê a oscilação a crescer a meio vão e as porcas a
+> desapertarem-se sozinhas, em tempo real, até ao ponto de falha.
 - **Escolher o travamento das anilhas** (nenhum → contra-porca → anilha freio →
   patilha dobrável → cavilha) e ver como resiste — ou não — à vibração.
 - **Mudar de vista** (perspetiva, lado, lado motor, apoio na roda, vista
@@ -44,6 +56,12 @@ Em tempo real, a partir dos defeitos e da velocidade, o painel estima:
 
 - **Excentricidade e vibração** do conjunto e o estado (estável → crítico →
   falha).
+- **Oscilação realista (whirl):** as rodas de apoio são nós fixos (rolam na
+  meia-cana mas não saltam); quem oscila é o veio/cilindro a **meio vão**, que
+  encurva tanto mais quanto maior o desgaste.
+- **Auto-desaperto das porcas (efeito Junker):** calculado a partir da folga do
+  escatel/chaveta e da rotação, e travado conforme o sistema de travamento
+  escolhido.
 - **Velocidade real possível vs. potencial** — a instabilidade obriga a abrandar.
 - **Erro de registo (µm)** e **manchas de tinta (%)**, com uma **prova de cor**
   animada para três trabalhos de tolerância diferente (ObaniA, Bolachas,

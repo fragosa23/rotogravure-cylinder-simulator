@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Simulador — Corpo de Impressão Rotogravura</title>
+<title>Simulação — Efeito Junker em Cilindros de Rotogravura</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
   :root{
@@ -90,8 +90,8 @@
 </head>
 <body>
 <header>
-  <h1>Corpo de Impressão · Rotogravura</h1>
-  <span class="sub">impacto na produção · metros perdidos e tempo de reajuste · porque a manutenção preventiva compensa</span>
+  <h1>Efeito Junker · Cilindros de Rotogravura</h1>
+  <span class="sub">auto-desaperto das porcas por folga no escatel · impacto na produção · porque a manutenção preventiva compensa</span>
 </header>
 
 <div class="wrap">
@@ -208,7 +208,7 @@
       <h2>Defeitos · severidade</h2>
       <div class="ctrl">
         <div class="lbl"><span class="name">Chaveta mal assente<span class="orig oper">operador</span></span></div>
-        <div class="desc" style="margin-top:0;margin-bottom:8px">Cilindro "encavalitado" sobre a chaveta — apoia torto desde a montagem. Pode estar bem assente de um lado e mal do outro.</div>
+        <div class="desc" style="margin-top:0;margin-bottom:8px">Escatel da bucha mal engatado — cilindro "encavalitado" sobre a chaveta, apoia torto desde a montagem. Pode estar bem assente de um lado e mal do outro.</div>
         <div class="lbl"><span class="name" style="font-size:11px">Lado dentro (motor)</span><span class="val" id="vKeyIn">0%</span></div>
         <input type="range" id="dKeyIn" min="0" max="100" value="0">
         <div class="lbl" style="margin-top:9px"><span class="name" style="font-size:11px">Lado fora</span><span class="val" id="vKeyOut">0%</span></div>
@@ -226,9 +226,9 @@
         <div class="xtra" id="seatNote"></div>
       </div>
       <div class="ctrl">
-        <div class="lbl"><span class="name">Anilhas desapertadas<span class="orig oper">operador</span></span><span class="val" id="vNut">0%</span></div>
+        <div class="lbl"><span class="name">Anilhas · folga inicial<span class="orig oper">operador</span></span><span class="val" id="vNut">0%</span></div>
         <input type="range" id="dNut" min="0" max="100" value="0">
-        <div class="desc">Fixação axial a ceder: as anilhas largam na rosca e o cilindro ganha jogo lateral.</div>
+        <div class="desc">Como saíram da montagem (0% = bem apertadas). <b>Mesmo a 0%</b>, o escatel/chaveta gastos vão desapertando-as durante a tiragem — é o efeito Junker, calculado em tempo real.</div>
       </div>
       <div class="ctrl">
         <div class="lbl"><span class="name">Folga rolamentos<span class="orig maint">manutenção</span></span><span class="val" id="vBal">0%</span></div>
@@ -365,8 +365,14 @@ const coupling=new THREE.Mesh(new THREE.CylinderGeometry(0.45,0.45,1.3,18), matF
 const root=new THREE.Group(); scene.add(root);
 const rotor=new THREE.Group(); root.add(rotor);
 
-// shaft: thinner journals at ends, thicker mid is hidden inside cylinder; keep single Ø65 but add a threaded zone outer
-const shaft=new THREE.Mesh(new THREE.CylinderGeometry(shaftR,shaftR,shaftLen,32), matShaft); shaft.rotation.z=Math.PI/2; rotor.add(shaft);
+// shaft: segmented so it can bow (whirl) between the fixed support wheels
+const shaftSegs=[];
+const NSEG=28, segLen=shaftLen/NSEG;
+for(let i=0;i<NSEG;i++){
+  const sx=-shaftLen/2+segLen*(i+0.5);
+  const seg=new THREE.Mesh(new THREE.CylinderGeometry(shaftR,shaftR,segLen*1.08,20), matShaft);
+  seg.rotation.z=Math.PI/2; seg.position.x=sx; seg.userData.baseX=sx; rotor.add(seg); shaftSegs.push(seg);
+}
 // threaded zone (lado fora) — wireframe sleeve
 const thread=new THREE.Mesh(new THREE.CylinderGeometry(shaftR+0.015,shaftR+0.015,1.8,24,1,true), new THREE.MeshStandardMaterial({color:0x6b7682,metalness:.7,roughness:.5,wireframe:true})); thread.rotation.z=Math.PI/2; thread.position.x=cylW/2+1.35; rotor.add(thread);
 
@@ -523,18 +529,33 @@ function instability(){
 function tick(dt){
   readLight();
   const {ecc,vib,sp,nutEff}=instability();
-  if(sp>0.05&&!S.failed){nutDrift=Math.min(100,nutDrift+(1-lockResist[S.lock])*(vib/100)*6*dt);}
+  // Efeito Junker: a folga no escatel/chaveta faz o cilindro rodar encavalitado -> golpe radial a cada volta -> auto-desaperto das porcas.
+  // Mesmo com as anilhas bem apertadas na montagem (S.nut=0), o desgaste sozinho desaperta-as durante a tiragem.
+  if(sp>0.05&&!S.failed){
+    const play=(S.slot/100)*0.7 + ((S.keyIn+S.keyOut)/2/100)*0.5 + (Math.abs(S.keyIn-S.keyOut)/100)*0.6 + (S.seat/100)*0.3;
+    const loosen=play*sp*9 + (vib/100)*3;
+    nutDrift=Math.min(100,nutDrift+(1-lockResist[S.lock])*loosen*dt);
+  }
   const tol=1.1;
   if(ecc>tol&&sp>0.05&&!S.failed){S.health=Math.max(0,S.health-(ecc-tol)*sp*38*dt); if(S.health<=0){S.health=0;S.failed=true;}}
   const rpmRad=(S.speed/60)*Math.PI*2; angle+=(S.failed?rpmRad*0.15:rpmRad)*dt; rotor.rotation.x=angle;
-  const wob=ecc*0.13, rattle=(S.slot/100)*0.04*Math.sin(t*40)*sp;
-  rotor.position.y=Math.sin(angle)*wob+rattle; rotor.position.z=Math.cos(angle)*wob*0.8;
+  // --- WHIRL (correção B): as rodas de apoio são nós fixos (rolamento na meia-cana); o veio+cilindro encurvam a meio vão.
+  // A deflexão é constante no referencial que roda -> ao girar gera a órbita; nos apoios (x=±wheelX) é zero, logo não oscilam.
+  const amp=Math.min(0.9, ecc*0.15) + (S.slot/100)*0.015*Math.sin(t*45)*sp;
+  const bendShape=(x)=>{const u=x/wheelX, b=1-u*u; return b<-0.5?-0.5:b;};   // 1 ao centro, 0 nos apoios, negativo nas pontas em balanço
+  const whirlY=(x)=>amp*bendShape(x);
+  shaftSegs.forEach(s=>{s.position.y=whirlY(s.userData.baseX);});
+  thread.position.y=whirlY(cylW/2+1.35);
+  dogGroup.position.y=whirlY(-shaftLen/2);
+  fixedPiece.position.y=whirlY(-cylW/2-0.9);
   const creep=(nutEff/100)*0.45; nutA.position.x=cylW/2+1.05+creep; nutB.position.x=cylW/2+1.45+creep*1.3;
   bushOut.position.x=cylW/2+0.4+(nutEff/100)*0.22;
-  const seatSag=(S.seat/100)*0.12; cylGroup.position.y=-seatSag*Math.cos(angle); cylGroup.position.z=seatSag*Math.sin(angle)*0.5;
+  bushIn.position.y=whirlY(-cylW/2-0.4); bushOut.position.y=whirlY(cylW/2+0.4);
+  nutA.position.y=whirlY(cylW/2+1.05); nutB.position.y=whirlY(cylW/2+1.45);
+  const seatSag=(S.seat/100)*0.12; cylGroup.position.y=whirlY(0)-seatSag; cylGroup.position.z=0;
   const nShim=Math.round(S.seat/100*4);
-  shimsOut.forEach((s,i)=>{s.visible=i<nShim; if(i<nShim)s.position.x=cylW/2+1.75+i*0.14;});
-  shimsIn.forEach((s,i)=>{s.visible=i<nShim; if(i<nShim)s.position.x=-cylW/2-1.3-i*0.14;});
+  shimsOut.forEach((s,i)=>{s.visible=i<nShim; if(i<nShim){s.position.x=cylW/2+1.75+i*0.14; s.position.y=whirlY(s.position.x);}});
+  shimsIn.forEach((s,i)=>{s.visible=i<nShim; if(i<nShim){s.position.x=-cylW/2-1.3-i*0.14; s.position.y=whirlY(s.position.x);}});
   const keyAvgV=(S.keyIn+S.keyOut)/2, keyDiffV=(S.keyIn-S.keyOut);
   cylGroup.rotation.z=(keyDiffV/100)*0.06+(keyAvgV/100)*0.02; cylGroup.rotation.y=(keyDiffV/100)*0.045;
   const stress=Math.min(1,ecc/2.2); stressMat.opacity=S.failed?0.9:stress*0.5;
