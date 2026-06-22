@@ -185,7 +185,8 @@
       <div class="ctrl">
         <div class="lbl"><span class="name">Perímetro (desenvolvimento)</span><span class="val" id="vDia">420 mm</span></div>
         <input type="range" id="dia" min="300" max="800" value="420" step="10">
-        <div class="desc">Em rotogravura mede-se o perímetro. Ø calculado = perímetro ÷ π. 420 mm → Ø≈134 mm. Maior perímetro amplifica inércia e desequilíbrio.</div>
+        <div class="desc">Em rotogravura mede-se o perímetro. Ø calculado = perímetro ÷ π. 420 mm → Ø≈134 mm. A massa cresce com o <b>quadrado</b> do perímetro — e a força centrífuga é massa × excentricidade × rpm².</div>
+        <div class="xtra" id="massNote"></div>
       </div>
     </div>
     <div class="sec">
@@ -493,7 +494,7 @@ function camHeldTick(){if(held)camStep(held);}
 
 // ---- State + physics
 const S={speed:0,keyIn:0,keyOut:0,slot:0,seat:0,nut:0,bal:0,lock:0,dia:420,health:100,failed:false};
-const E={}; ['speed','dKeyIn','dKeyOut','dSlot','dSeat','dNut','dBal','lock','dia','spVal','spState','vKeyIn','vKeyOut','vSlot','vSeat','vNut','vNutNow','nutBar','vBal','vDia','seatNote','lockTag','lockDesc','hRpm','hDia','hEcc','hVib','hDef','status','healthBar','healthPct','btnReset','btnReseat'].forEach(id=>E[id]=document.getElementById(id));
+const E={}; ['speed','dKeyIn','dKeyOut','dSlot','dSeat','dNut','dBal','lock','dia','spVal','spState','vKeyIn','vKeyOut','vSlot','vSeat','vNut','vNutNow','nutBar','vBal','vDia','massNote','seatNote','lockTag','lockDesc','hRpm','hDia','hEcc','hVib','hDef','status','healthBar','healthPct','btnReset','btnReseat'].forEach(id=>E[id]=document.getElementById(id));
 const lockNames=['nenhum','contra-porca','anilha freio','patilha dobrável','cavilha'];
 const lockDescs=['Sem travamento — só aperto por atrito. Vibração desaperta com facilidade.','Segunda porca apertada contra a primeira. Trava por atrito — simples e eficaz.','Anilha de pressão/serrilhada (tipo Nord-Lock). Boa resistência à vibração.','Anilha com patilha dobrada sobre a porca. Travamento mecânico positivo.','Furo + cavilha atravessada. Não depende de atrito — não solta.'];
 const lockResist=[0,0.55,0.75,0.9,0.98];
@@ -504,6 +505,8 @@ function readControls(){
   const nd=+E.dia.value; if(nd!==S.dia){S.dia=nd; buildCylinder(S.dia);}
   const diaCalc=Math.round(S.dia/Math.PI);
   E.spVal.textContent=S.speed; E.vDia.textContent=S.dia+' mm'; E.hDia.textContent=S.dia+' / Ø'+diaCalc+' mm';
+  const Rm=(S.dia/Math.PI)/2/1000; const cylKg=Math.round(Math.PI*Rm*Rm*0.85*7850);  // aço maciço Ø×850 mm
+  E.massNote.textContent='Massa estim.: cilindro ~'+cylKg+' kg · veio ~50 kg';
   E.vKeyIn.textContent=pctTxt(S.keyIn);cls(E.vKeyIn,S.keyIn);
   E.vKeyOut.textContent=pctTxt(S.keyOut);cls(E.vKeyOut,S.keyOut);
   E.vSlot.textContent=pctTxt(S.slot);cls(E.vSlot,S.slot);
@@ -522,6 +525,7 @@ E.btnReseat.addEventListener('click',()=>{S.health=100;S.failed=false;nutDrift=0
 let nutDrift=0,t=0,angle=0,collapse=0;
 function instability(){
   const sp=S.speed/600, diaF=(S.dia-300)/500;
+  const massF=(0.4+Math.pow(S.dia/420,2))/1.4;   // veio pesado (base 0.4) + cilindro ~perímetro²; =1 no default 420
   const keyAvg=(S.keyIn+S.keyOut)/2, keyTilt=Math.abs(S.keyIn-S.keyOut);
   const eKey=(keyAvg/100)*(0.9+0.6*sp)+(keyTilt/100)*(0.35+0.45*sp);
   const eSlot=(S.slot/100)*(0.3+1.4*sp*sp);
@@ -530,28 +534,29 @@ function instability(){
   const eNut=(nutEff/100)*(0.5+2.2*sp);   // bucha a sair -> perde centragem -> vibra cada vez mais
   const eBal=(S.bal/100)*(0.2+2.4*sp*sp)*(0.7+0.8*diaF);
   const ecc=eKey+eSlot+eSeat+eNut+eBal;
-  const vib=Math.min(100,ecc*22+sp*8);
-  return {ecc,vib,sp,nutEff};
+  // força centrífuga ~ massa × excentricidade × rpm² -> a massa amplifica a vibração
+  const vib=Math.min(100,ecc*22*massF+sp*8);
+  return {ecc,vib,sp,nutEff,massF};
 }
 function tick(dt){
   readLight();
-  const {ecc,vib,sp,nutEff}=instability();
+  const {ecc,vib,sp,nutEff,massF}=instability();
   // Efeito Junker: a folga no escatel/chaveta faz o cilindro rodar encavalitado -> golpe radial a cada volta -> auto-desaperto das porcas.
   // Mesmo com as anilhas bem apertadas na montagem (S.nut=0), o desgaste sozinho desaperta-as durante a tiragem.
   if(sp>0.05&&!S.failed){
     const play=(S.slot/100)*0.7 + ((S.keyIn+S.keyOut)/2/100)*0.5 + (Math.abs(S.keyIn-S.keyOut)/100)*0.6 + (S.seat/100)*0.3;
     // Início: o aperto com força segura (rampa baixa, "ainda aguenta"). À medida que cede perde pré-carga e acelera (rampa->1).
     const ramp=0.12 + 0.88*(nutEff/100);
-    const loosen=((vib/100)*3.2 + play*sp*2.6)*ramp;
+    const loosen=((vib/100)*3.2 + play*sp*2.6*massF)*ramp;   // cilindro mais pesado -> mais força transversal -> desaperta mais depressa
     nutDrift=Math.min(100,nutDrift+(1-lockResist[S.lock])*loosen*dt);
     if(nutDrift>=100) S.failed=true;   // anilhas largaram -> bucha sai do cilindro -> tudo fica pendurado no veio
   }
   const tol=1.1;
-  if(ecc>tol&&sp>0.05&&!S.failed){S.health=Math.max(0,S.health-(ecc-tol)*sp*38*dt); if(S.health<=0){S.health=0;S.failed=true;}}
+  if(ecc>tol&&sp>0.05&&!S.failed){S.health=Math.max(0,S.health-(ecc-tol)*sp*38*massF*dt); if(S.health<=0){S.health=0;S.failed=true;}}
   const rpmRad=(S.speed/60)*Math.PI*2; angle+=(S.failed?rpmRad*0.15:rpmRad)*dt; rotor.rotation.x=angle;
   // --- WHIRL (correção B): as rodas de apoio são nós fixos (rolamento na meia-cana); o veio+cilindro encurvam a meio vão.
   // A deflexão é constante no referencial que roda -> ao girar gera a órbita; nos apoios (x=±wheelX) é zero, logo não oscilam.
-  const amp=Math.min(0.9, ecc*0.15) + (S.slot/100)*0.015*Math.sin(t*45)*sp;
+  const amp=Math.min(1.0, ecc*0.14*(0.7+0.4*massF)) + (S.slot/100)*0.015*Math.sin(t*45)*sp;   // mais massa -> maior deflexão
   const bendShape=(x)=>{const u=x/wheelX, b=1-u*u; return b<-0.5?-0.5:b;};   // 1 ao centro, 0 nos apoios, negativo nas pontas em balanço
   const whirlY=(x)=>amp*bendShape(x);
   shaftSegs.forEach(s=>{s.position.y=whirlY(s.userData.baseX);});
