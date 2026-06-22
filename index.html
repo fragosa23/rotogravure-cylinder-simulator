@@ -233,7 +233,7 @@
       <div class="ctrl">
         <div class="lbl"><span class="name">Alojamento alargado<span class="orig wear">desgaste</span></span><span class="val" id="vSeat">0%</span></div>
         <input type="range" id="dSeat" min="0" max="100" value="0">
-        <div class="desc">A boca do cilindro alargou de tantas montagens — a bucha entra demais e centra mal. Nos dois lados.</div>
+        <div class="desc">A boca do cilindro alargou de tantas montagens. Mete-se anilhas <b>só no lado do aperto</b> para empurrar a bucha (e o escatel) mais para dentro do cilindro. É <b>paliativo</b>: a folga radial mantém-se e vibra cada vez mais — só a manutenção (re-embuchar) resolve.</div>
         <div class="xtra" id="seatNote"></div>
       </div>
       <div class="ctrl">
@@ -462,13 +462,13 @@ function buildCylinder(perimMM){
 }
 buildCylinder(420);
 
-// ---- NUTS / ANILHAS (lado fora) — two washers on thread + extra shims when seat worn
+// ---- NUTS / ANILHAS (lado fora) — duas porcas na rosca + anilhas de compensação (só lado do aperto) quando o alojamento está gasto
 const nutGroup=new THREE.Group(); rotor.add(nutGroup);
 function makeNut(x,r,m){const n=new THREE.Mesh(new THREE.CylinderGeometry(r,r,0.3,28), m||matNut); n.rotation.z=Math.PI/2; n.position.x=x; return n;}
 const nutA=makeNut(cylW/2+1.05,shaftR*1.5), nutB=makeNut(cylW/2+1.45,shaftR*1.5);
 nutGroup.add(nutA,nutB);
-const shimsOut=[], shimsIn=[];
-for(let i=0;i<4;i++){const so=makeNut(0,shaftR*1.55,matNutX); so.visible=false; nutGroup.add(so); shimsOut.push(so); const si=makeNut(0,shaftR*1.55,matNutX); si.visible=false; nutGroup.add(si); shimsIn.push(si);}
+const shimsOut=[];   // anilhas de compensação — só no lado do aperto, empurram a bucha p/ dentro do cilindro
+for(let i=0;i<4;i++){const so=makeNut(0,shaftR*1.55,matNutX); so.visible=false; nutGroup.add(so); shimsOut.push(so);}
 
 // stress shell
 const stressMat=new THREE.MeshBasicMaterial({color:0xff5252,transparent:true,opacity:0,wireframe:true});
@@ -514,7 +514,7 @@ function readControls(){
   E.vNut.textContent=pctTxt(S.nut);cls(E.vNut,S.nut);
   E.vBal.textContent=pctTxt(S.bal);cls(E.vBal,S.bal);
   const nShim=Math.round(S.seat/100*4);
-  E.seatNote.textContent=nShim>0?('compensado com '+nShim+' anilha'+(nShim>1?'s':'')+' extra por lado'):'';
+  E.seatNote.textContent=nShim>0?(nShim+' anilha'+(nShim>1?'s':'')+' no lado do aperto p/ empurrar a bucha p/ dentro — paliativo, não tira a folga'):'';
   E.lockTag.textContent=lockNames[S.lock]; E.lockDesc.textContent=lockDescs[S.lock];
   [['dKeyIn',S.keyIn],['dKeyOut',S.keyOut],['dSlot',S.slot],['dSeat',S.seat],['dNut',S.nut],['dBal',S.bal]].forEach(([id,v])=>{const e=document.getElementById(id); e.classList.toggle('hot',v>=33&&v<66); e.classList.toggle('crit',v>=66);});
 }
@@ -571,8 +571,8 @@ function tick(dt){
   collapse += ((S.failed?1:0)-collapse)*Math.min(1,dt*1.5);   // rampa do colapso após falha
   const seatSag=(S.seat/100)*0.12; cylGroup.position.y=whirlY(0)-seatSag; cylGroup.position.z=0;
   const nShim=Math.round(S.seat/100*4);
-  shimsOut.forEach((s,i)=>{s.visible=i<nShim; if(i<nShim){s.position.x=cylW/2+1.75+i*0.14; s.position.y=whirlY(s.position.x);}});
-  shimsIn.forEach((s,i)=>{s.visible=i<nShim; if(i<nShim){s.position.x=-cylW/2-1.3-i*0.14; s.position.y=whirlY(s.position.x);}});
+  // anilhas de compensação: só no lado do aperto, entre a bucha e a porca
+  shimsOut.forEach((s,i)=>{s.visible=i<nShim; if(i<nShim){s.position.x=cylW/2+0.45+i*0.16; s.position.y=whirlY(s.position.x);}});
   const keyAvgV=(S.keyIn+S.keyOut)/2, keyDiffV=(S.keyIn-S.keyOut);
   cylGroup.rotation.z=(keyDiffV/100)*0.06+(keyAvgV/100)*0.02; cylGroup.rotation.y=(keyDiffV/100)*0.045;
   const stress=Math.min(1,ecc/2.2); stressMat.opacity=S.failed?0.9:stress*0.5;
@@ -804,7 +804,7 @@ function applyExplode(e){
   // anilhas caminham para fora na rosca conforme desapertam (sem voar); a bucha exterior vai SAINDO do cilindro
   nutA.position.x=cylW/2+1.05+ne*0.6+2.6*e + c*0.4;
   nutB.position.x=cylW/2+1.45+ne*0.8+3.4*e + c*0.55;
-  bushOut.position.x=cylW/2+0.1+ne*0.9+1.6*e + c*1.0;
+  bushOut.position.x=cylW/2+0.1-(S.seat/100)*0.45+ne*0.9+1.6*e + c*1.0;   // anilhas de compensação empurram a bucha p/ dentro
   dogGroup.position.x=-1.4*e;
   if(c>0.001){   // colapso: a bucha saiu, o cilindro fica PENDURADO no veio — descai a folga do furo e tomba ligeiramente (não voa para fora)
     nutA.position.y-=c*0.15; nutB.position.y-=c*0.2;
