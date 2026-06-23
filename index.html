@@ -26,11 +26,15 @@
   #camctl button{width:38px; height:38px; padding:0; font-size:15px; line-height:1; border:1px solid var(--line); background:rgba(19,24,31,.9); color:var(--ink); border-radius:7px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:.1s; -webkit-user-select:none; user-select:none; touch-action:manipulation;}
   #camctl button:hover{border-color:var(--accent); color:var(--accent)}
   #camctl button:active{background:var(--accent); color:#06222e}
-  #regPanel{position:absolute; left:14px; bottom:96px; width:184px; background:rgba(12,15,20,.9); border:1px solid var(--line); border-radius:6px; padding:8px; z-index:5; pointer-events:none;}
-  #regPanel .regTitle{font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:6px}
+  #regPanel{position:absolute; left:14px; bottom:96px; width:184px; background:rgba(12,15,20,.92); border:1px solid var(--line); border-radius:6px; padding:8px; z-index:6; pointer-events:auto;}
+  #regPanel .regHead{display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:6px; cursor:move; -webkit-user-select:none; user-select:none; touch-action:none;}
+  #regPanel .regTitle{font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-dim);}
+  #regPanel .regBtns{display:flex; gap:4px}
+  #regPanel .regBtns button{width:18px; height:18px; padding:0; font-size:12px; line-height:1; border:1px solid var(--line); background:#1b232d; color:var(--ink-dim); border-radius:3px; cursor:pointer; display:flex; align-items:center; justify-content:center; touch-action:manipulation;}
+  #regPanel .regBtns button:hover{border-color:var(--accent); color:var(--accent)}
   #regCanvas{width:168px; height:105px; display:block; background:#f4f4ef; border-radius:3px;}
   #regPanel .regFoot{font-size:9px; color:var(--ink-dim); margin-top:5px; font-variant-numeric:tabular-nums; text-align:center}
-  #regPanel .regJobs{display:flex; gap:3px; margin-top:5px; pointer-events:auto}
+  #regPanel .regJobs{display:flex; gap:3px; margin-top:5px;}
   #regPanel .jobBtn{flex:1; font-family:var(--mono); font-size:8px; letter-spacing:.03em; padding:4px 2px; border:1px solid var(--line); background:#1b232d; color:var(--ink-dim); border-radius:3px; cursor:pointer; touch-action:manipulation;}
   #regPanel .jobBtn.on{border-color:var(--accent); color:var(--accent)}
   @media (max-width:820px){ #regPanel{bottom:auto; top:60px; left:14px; width:150px} #regCanvas{width:134px;height:84px} }
@@ -105,7 +109,13 @@
     </div>
     <div id="status">— parado —</div>
     <div id="regPanel">
-      <div class="regTitle">Prova de cor · <span id="regJobName">ObaniA</span></div>
+      <div class="regHead" id="regHead">
+        <span class="regTitle">Prova de cor · <span id="regJobName">ObaniA</span></span>
+        <span class="regBtns">
+          <button id="regSmaller" title="Reduzir">－</button>
+          <button id="regBigger" title="Ampliar">＋</button>
+        </span>
+      </div>
       <canvas id="regCanvas" width="320" height="200"></canvas>
       <div class="regJobs">
         <button data-job="0" class="jobBtn on">ObaniA</button>
@@ -704,6 +714,30 @@ document.querySelectorAll('.jobBtn').forEach(b=>{
 });
 // expose effective tolerance so scrap/rejection uses it too
 function jobTol(){return JOBS[curJob].tol;}
+// ---- Pré-visualizador: arrastar (pela barra) e ampliar/reduzir
+(function(){
+  const panel=document.getElementById('regPanel'), head=document.getElementById('regHead'), cv=document.getElementById('regCanvas');
+  const baseW=168, baseH=105; let scale=1, drag=false, sx=0, sy=0, startL=0, startT=0;
+  function applyScale(){ cv.style.width=Math.round(baseW*scale)+'px'; cv.style.height=Math.round(baseH*scale)+'px'; panel.style.width=(Math.round(baseW*scale)+16)+'px'; }
+  document.getElementById('regBigger').addEventListener('click',e=>{e.stopPropagation(); scale=Math.min(2.6,scale+0.2); applyScale();});
+  document.getElementById('regSmaller').addEventListener('click',e=>{e.stopPropagation(); scale=Math.max(0.6,scale-0.2); applyScale();});
+  head.addEventListener('pointerdown',e=>{
+    if(e.target.closest('.regBtns')) return;
+    const pr=stage.getBoundingClientRect(), r=panel.getBoundingClientRect();
+    startL=r.left-pr.left; startT=r.top-pr.top; sx=e.clientX; sy=e.clientY; drag=true;
+    panel.style.left=startL+'px'; panel.style.top=startT+'px'; panel.style.bottom='auto';
+    e.preventDefault();
+  });
+  window.addEventListener('pointermove',e=>{
+    if(!drag) return;
+    const pr=stage.getBoundingClientRect();
+    let nl=startL+(e.clientX-sx), nt=startT+(e.clientY-sy);
+    nl=Math.max(0,Math.min(pr.width-panel.offsetWidth, nl));
+    nt=Math.max(0,Math.min(pr.height-panel.offsetHeight, nt));
+    panel.style.left=nl+'px'; panel.style.top=nt+'px';
+  });
+  window.addEventListener('pointerup',()=>{drag=false;});
+})();
 // rounded-rect helper for the packaging label
 function rrect(x,y,w,h,r){regCtx.beginPath();regCtx.moveTo(x+r,y);regCtx.arcTo(x+w,y,x+w,y+h,r);regCtx.arcTo(x+w,y+h,x,y+h,r);regCtx.arcTo(x,y+h,x,y,r);regCtx.arcTo(x,y,x+w,y,r);regCtx.closePath();}
 function drawRegistration(regErr, sp, vib){
