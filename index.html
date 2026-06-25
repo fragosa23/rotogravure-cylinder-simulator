@@ -107,6 +107,9 @@
   #asmBar #asmGoMachine{border-color:var(--accent); color:var(--accent)}
   #asmBar #asmLabel{font-size:11px; color:var(--ink); min-width:230px; text-align:center; font-variant-numeric:tabular-nums}
   @media (max-width:820px){ #asmBar{flex-wrap:wrap; justify-content:center; width:calc(100% - 28px)} #asmBar #asmLabel{min-width:0; width:100%; order:-1; margin-bottom:4px} }
+  #asmDiaBox{position:absolute; left:50%; top:14px; transform:translateX(-50%); z-index:7; display:none; align-items:center; gap:10px; background:rgba(12,15,20,.92); border:1px solid var(--line); border-radius:8px; padding:8px 14px; font-size:11px; color:var(--ink);}
+  #asmDiaBox input[type=range]{width:150px}
+  #asmDiaBox #asmDiaVal{color:var(--accent); font-variant-numeric:tabular-nums; min-width:160px}
 </style>
 </head>
 <body>
@@ -170,6 +173,11 @@
       <span id="asmLabel">1/6 · Cilindro pousado na mesa</span>
       <button id="asmNext">Próximo ▶</button>
       <button id="asmGoMachine">Ir para máquina ▶</button>
+    </div>
+    <div id="asmDiaBox">
+      <span>Perímetro do cilindro</span>
+      <input type="range" id="asmDia" min="300" max="800" value="420" step="10">
+      <span id="asmDiaVal">420 mm → Ø134 · ~94 kg</span>
     </div>
   </div>
 
@@ -370,7 +378,14 @@ const matFrameDk=new THREE.MeshStandardMaterial({color:0x1d2731,metalness:.4,rou
 const matMotor=new THREE.MeshStandardMaterial({color:0x355061,metalness:.5,roughness:.5});
 const matMotorFin=new THREE.MeshStandardMaterial({color:0x29404e,metalness:.5,roughness:.55});
 
-// ---- MACHINE: side frames with half-pipe cradle (meia-cana) open at top
+// peça anelar (com furo passante) — eixo ao longo de X, centrada na origem. Para rodas/anilhas/buchas, por onde passa o veio.
+function washerGeo(outerR, innerR, thick){
+  const sh=new THREE.Shape(); sh.absarc(0,0,outerR,0,Math.PI*2,false);
+  const hole=new THREE.Path(); hole.absarc(0,0,innerR,0,Math.PI*2,true); sh.holes.push(hole);
+  const g=new THREE.ExtrudeGeometry(sh,{depth:thick,bevelEnabled:false,curveSegments:36});
+  g.translate(0,0,-thick/2); g.rotateY(Math.PI/2); return g;
+}
+
 const machine=new THREE.Group(); scene.add(machine);
 const cradleTopY=-wheelGrvR;       // groove (Ø145) rests on cradle bottom
 const cradleR=wheelGrvR+0.05;      // cradle curvature ~ wheel groove
@@ -434,15 +449,15 @@ for(let i=0;i<3;i++){const a=i/3*Math.PI*2; const tooth=new THREE.Mesh(new THREE
 // ---- WHEELS: pulley profile (abas Ø155 + groove Ø145), spin with shaft, rest in cradle
 function makeWheel(x){
   const g=new THREE.Group();
-  // central groove band Ø145 (contact)
-  const grv=new THREE.Mesh(new THREE.CylinderGeometry(wheelGrvR,wheelGrvR,wheelW*0.5,40), matWheel2); grv.rotation.z=Math.PI/2; g.add(grv);
-  // two flanges Ø155 (abas) on the sides
+  // central groove band Ø145 (contact) — com furo
+  const grv=new THREE.Mesh(washerGeo(wheelGrvR, shaftR*1.15, wheelW*0.5), matWheel2); g.add(grv);
+  // two flanges Ø155 (abas) on the sides — com furo
   [-1,1].forEach(s=>{
-    const aba=new THREE.Mesh(new THREE.CylinderGeometry(wheelAbaR,wheelAbaR,wheelW*0.22,40), matWheel2);
-    aba.rotation.z=Math.PI/2; aba.position.x=s*(wheelW*0.5/2+wheelW*0.11); g.add(aba);
+    const aba=new THREE.Mesh(washerGeo(wheelAbaR, shaftR*1.15, wheelW*0.22), matWheel2);
+    aba.position.x=s*(wheelW*0.5/2+wheelW*0.11); g.add(aba);
   });
-  // hub bore hint
-  const hub=new THREE.Mesh(new THREE.CylinderGeometry(shaftR*1.15,shaftR*1.15,wheelW*0.74,28), matShaftDk); hub.rotation.z=Math.PI/2; g.add(hub);
+  // rolamento / furo central (deixa passar o veio)
+  const hub=new THREE.Mesh(washerGeo(shaftR*1.15, shaftR*1.02, wheelW*0.78), matShaftDk); g.add(hub);
   g.position.x=x; return g;
 }
 // ---- WHEELS: spin-free supports. Só pousam na meia-cana; o rolamento interior deixa o VEIO rodar, a roda não roda.
@@ -455,7 +470,7 @@ const tTop=new THREE.Mesh(new THREE.BoxGeometry(cylW+4,0.3,3.6), matFrame); tTop
 
 // ---- LADO DENTRO: peça fixa ao veio (com escatel) — sits just inboard of cylinder inner mouth
 const fixedPiece=new THREE.Group(); rotor.add(fixedPiece);
-const fixBody=new THREE.Mesh(new THREE.CylinderGeometry(shaftR*1.4,shaftR*1.4,0.8,32), matFixed); fixBody.rotation.z=Math.PI/2; fixBody.position.x=-cylW/2-0.9; fixedPiece.add(fixBody);
+const fixBody=new THREE.Mesh(washerGeo(shaftR*1.4, shaftR*1.02, 0.8), matFixed); fixBody.position.x=-cylW/2-0.9; fixedPiece.add(fixBody);
 // escatel slot in the fixed piece (a notch on its rim)
 const fixSlot=new THREE.Mesh(new THREE.BoxGeometry(0.82,0.18,0.3), new THREE.MeshStandardMaterial({color:0x141c25,metalness:.3,roughness:.8})); fixSlot.position.set(-cylW/2-0.9, shaftR*1.4-0.05, 0); fixedPiece.add(fixSlot);
 
@@ -463,8 +478,8 @@ const fixSlot=new THREE.Mesh(new THREE.BoxGeometry(0.82,0.18,0.3), new THREE.Mes
 const bushR=shaftR*1.35;   // OD ~Ø88 mm — cabe dentro do menor cilindro da gama (desenv. 300 -> Ø95)
 function makeBush(x, withKeyTop){
   const g=new THREE.Group();
-  const sleeve=new THREE.Mesh(new THREE.CylinderGeometry(bushR*0.92,bushR*0.92,0.55,32), matBush); sleeve.rotation.z=Math.PI/2; g.add(sleeve);
-  const collar=new THREE.Mesh(new THREE.CylinderGeometry(bushR,bushR,0.3,32), matBushDk); collar.rotation.z=Math.PI/2; collar.position.x=(x<0?0.32:-0.32); g.add(collar);
+  const sleeve=new THREE.Mesh(washerGeo(bushR*0.92, shaftR*1.02, 0.55), matBush); g.add(sleeve);
+  const collar=new THREE.Mesh(washerGeo(bushR, shaftR*1.02, 0.3), matBushDk); collar.position.x=(x<0?0.32:-0.32); g.add(collar);
   // its own key (chaveta) that goes into the cylinder escatel (hidden inside the mouth)
   const k=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.12,0.24), matKey); k.position.set((x<0?-0.2:0.2), bushR*0.92+0.02, 0); g.add(k);
   g.position.x=x; return g;
@@ -518,7 +533,7 @@ buildCylinder(420);
 
 // ---- NUTS / ANILHAS (lado fora) — duas porcas na rosca + anilhas de compensação (só lado do aperto) quando o alojamento está gasto
 const nutGroup=new THREE.Group(); rotor.add(nutGroup);
-function makeNut(x,r,m){const n=new THREE.Mesh(new THREE.CylinderGeometry(r,r,0.3,28), m||matNut); n.rotation.z=Math.PI/2; n.position.x=x; return n;}
+function makeNut(x,r,m){const n=new THREE.Mesh(washerGeo(r, shaftR*1.06, 0.3), m||matNut); n.position.x=x; return n;}
 const nutA=makeNut(cylW/2+1.05,shaftR*1.5), nutB=makeNut(cylW/2+1.45,shaftR*1.5);
 nutGroup.add(nutA,nutB);
 const shimsOut=[];   // anilhas de compensação — só no lado do aperto, empurram a bucha p/ dentro do cilindro
@@ -932,12 +947,16 @@ function setMode(m){
   document.getElementById('status').style.display=(m==='machine')?'':'none';
   document.querySelector('.legend').style.display=(m==='machine')?'':'none';
   document.querySelector('.tags').style.display=(m==='machine')?'':'none';
+  document.getElementById('asmDiaBox').style.display=(m==='assembly')?'flex':'none';
   machine.visible=(m==='machine'); motor.visible=(m==='machine'); table.visible=(m==='assembly');
-  if(m==='assembly'){ asmStep=0; asm=0; E.speed.value=0; readControls(); updateAsmLabel(); camTheta=0.62; camPhi=1.05; camRad=34; camTarget.set(0,-0.6,0); }
+  if(m==='assembly'){ asmStep=0; asm=0; E.speed.value=0; asmDia.value=E.dia.value; updateAsmDia(); readControls(); updateAsmLabel(); camTheta=0.62; camPhi=1.05; camRad=34; camTarget.set(0,-0.6,0); }
   else { resetAssembledX(); }
   if(m==='machine'){ camTheta=camHome.t; camPhi=camHome.p; camRad=camHome.r; camTarget.set(0,-0.6,0); }
   resize();
 }
+const asmDia=document.getElementById('asmDia'), asmDiaVal=document.getElementById('asmDiaVal');
+function updateAsmDia(){const p=+asmDia.value, d=Math.round(p/Math.PI), Rm=(p/Math.PI)/2/1000, kg=Math.round(Math.PI*Rm*Rm*0.85*7850); asmDiaVal.textContent=p+' mm → Ø'+d+' · ~'+kg+' kg';}
+asmDia.addEventListener('input',()=>{ E.dia.value=asmDia.value; readControls(); updateAsmDia(); });
 document.querySelectorAll('#menu .menuBtn').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.phase)));
 document.getElementById('homeBtn').addEventListener('click',()=>setMode('menu'));
 document.getElementById('asmNext').addEventListener('click',()=>{asmStep=Math.min(5,asmStep+1); updateAsmLabel();});
