@@ -507,10 +507,14 @@ function makeBush(x){
   const tipRing=new THREE.Mesh(new THREE.RingGeometry(shaftR*1.02,bushR*0.72,40), matBushDk); tipRing.rotation.y=Math.PI/2; tipRing.position.x=0.59; g.add(tipRing);
   // escatel: saliência alongada AO LONGO do afunilamento (verde->vermelho c/ desgaste)
   const tab=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.1,0.16), matEscatel); tab.position.set(0.23, bushR*0.82, 0); tab.rotation.z=-0.14; g.add(tab);
+  // só a bucha de dentro: ranhura no anel grosso (face do motor) que encaixa no escatel do veio
+  if(x<0){ const notch=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.13,0.22), matBushDk); notch.position.set(-0.64, shaftR+0.05, 0); g.add(notch); }
   g.position.x=x; if(x>0) g.rotation.y=Math.PI;   // lado de fora: roda 180º p/ a ponta apontar ao cilindro
   return g;
 }
 const bushIn=makeBush(-cylW/2-0.4), bushOut=makeBush(cylW/2+0.4); rotor.add(bushIn,bushOut);
+// escatel do veio (lado de dentro) — encaixa na ranhura do anel grosso da bucha de dentro
+const shaftKey=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.1,0.18), matBush); shaftKey.position.set(-cylW/2-1.04, shaftR+0.05, 0); shaftKey.userData.baseX=-cylW/2-1.04; rotor.add(shaftKey);
 
 // ---- CYLINDER (single solid roto cylinder: engraving on central ~750mm, ~50mm plain margins)
 const cylGroup=new THREE.Group(); rotor.add(cylGroup);
@@ -930,12 +934,13 @@ function drawJobPantones(W,H,offv){
 function applyExplode(e){
   const ne=Math.min(100,S.nut+nutDrift)/100;   // desaperto efetivo
   const c=collapse;
+  const slotDepth=Math.min(0.4,(S.slot/100)*0.5);   // ranhura gasta -> escatel entra mais fundo, até um limite
   fixedPiece.position.x=-1.0*e;
-  bushIn.position.x=-cylW/2-0.4-1.6*e;
+  bushIn.position.x=-cylW/2-0.4-1.6*e+slotDepth;     // entra mais p/ dentro (+x)
   // anilhas caminham para fora na rosca conforme desapertam (sem voar); a bucha exterior vai SAINDO do cilindro
   nutA.position.x=cylW/2+1.05+ne*0.6+2.6*e + c*0.4;
   nutB.position.x=cylW/2+1.45+ne*0.8+3.4*e + c*0.55;
-  bushOut.position.x=cylW/2+0.1-(S.seat/100)*0.45+ne*0.9+1.6*e + c*1.0;   // anilhas de compensação empurram a bucha p/ dentro
+  bushOut.position.x=cylW/2+0.1-(S.seat/100)*0.45-slotDepth+ne*0.9+1.6*e + c*1.0;   // compensação + escatel entra mais fundo
   dogGroup.position.x=-1.4*e;
   if(c>0.001){   // colapso: a bucha saiu, o cilindro fica PENDURADO no veio — descai a folga do furo e tomba ligeiramente (não voa para fora)
     nutA.position.y-=c*0.15; nutB.position.y-=c*0.2;
@@ -953,12 +958,14 @@ function assemblyTick(dt){
   const cl=v=>Math.max(0,Math.min(1,v));
   const p1=cl(asm), p2=cl(asm-1), p3=cl(asm-2), p4=cl(asm-3);
   const dx1=(1-p1)*(-9);   // veio + bucha de dentro entram do lado do motor
+  const slotDepth=Math.min(0.4,(S.slot/100)*0.5);   // ranhura gasta -> escatel entra mais fundo
   shaftSegs.forEach(s=>{s.position.x=s.userData.baseX+dx1; s.position.y=0;});
   thread.position.x=cylW/2+1.35+dx1; thread.position.y=0;
   fixedPiece.position.x=dx1; fixedPiece.position.y=0;
-  bushIn.position.x=-cylW/2-0.4+dx1; bushIn.position.y=0;
+  bushIn.position.x=-cylW/2-0.4+dx1+slotDepth*p1; bushIn.position.y=0;
+  shaftKey.position.x=shaftKey.userData.baseX+dx1; shaftKey.position.y=shaftR+0.05;
   dogGroup.position.x=dx1; dogGroup.position.y=0;
-  bushOut.position.x=cylW/2+0.1+(1-p2)*6; bushOut.position.y=0;       // bucha de fora
+  bushOut.position.x=cylW/2+0.1-slotDepth*p2+(1-p2)*6; bushOut.position.y=0;       // bucha de fora (entra mais fundo c/ ranhura gasta)
   nutA.position.x=cylW/2+1.05+(1-p3)*9;  nutA.position.y=0;            // anilhas
   nutB.position.x=cylW/2+1.45+(1-p3)*9.6; nutB.position.y=0;
   wheelL.position.y=(1-p4)*7; wheelR_.position.y=(1-p4)*7;            // rodas descem às pontas
@@ -975,6 +982,7 @@ function setAsmCamera(step){
 function resetAssembledX(){
   shaftSegs.forEach(s=>{s.position.x=s.userData.baseX; s.position.y=0;});
   thread.position.x=cylW/2+1.35; thread.position.y=0;
+  shaftKey.position.x=shaftKey.userData.baseX; shaftKey.position.y=shaftR+0.05;
   wheelL.position.y=0; wheelR_.position.y=0;
   rotor.rotation.x=0;
 }
