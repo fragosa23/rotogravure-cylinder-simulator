@@ -26,6 +26,8 @@
   #camctl button{width:38px; height:38px; padding:0; font-size:15px; line-height:1; border:1px solid var(--line); background:rgba(19,24,31,.9); color:var(--ink); border-radius:7px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:.1s; -webkit-user-select:none; user-select:none; touch-action:manipulation;}
   #camctl button:hover{border-color:var(--accent); color:var(--accent)}
   #camctl button:active{background:var(--accent); color:#06222e}
+  #camctl select{width:128px; font-family:var(--mono); font-size:10px; padding:6px; border:1px solid var(--line); background:rgba(19,24,31,.95); color:var(--ink); border-radius:7px; cursor:pointer; margin-bottom:2px;}
+  #camctl .cclabel{font-size:8px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-dim); margin-top:5px; margin-bottom:1px;}
   #regPanel{position:absolute; left:14px; bottom:96px; width:184px; background:rgba(12,15,20,.92); border:1px solid var(--line); border-radius:6px; padding:8px; z-index:6; pointer-events:auto;}
   #regPanel .regHead{display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:6px; cursor:move; -webkit-user-select:none; user-select:none; touch-action:none;}
   #regPanel .regTitle{font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-dim);}
@@ -169,10 +171,26 @@
       <div>vermelho = zona de falha</div>
     </div>
     <div id="camctl">
+      <select id="camFocus" title="Levar a câmara a um ponto">
+        <option value="">Ir para…</option>
+        <option value="geral">Vista geral</option>
+        <option value="centro">Centro do cilindro</option>
+        <option value="encaixeIn">Encaixe — lado de dentro</option>
+        <option value="encaixeOut">Encaixe — lado de fora</option>
+        <option value="anilhas">Anilhas (aperto)</option>
+        <option value="motor">Lado motor</option>
+        <option value="rodaEsq">Roda de apoio esq.</option>
+        <option value="rodaDir">Roda de apoio dir.</option>
+      </select>
+      <div class="cclabel">rodar</div>
       <div class="ccrow"><button data-cam="up">▲</button></div>
       <div class="ccrow"><button data-cam="left">◄</button><button data-cam="reset">⟳</button><button data-cam="right">►</button></div>
       <div class="ccrow"><button data-cam="down">▼</button></div>
       <div class="ccrow cczoom"><button data-cam="zin">＋</button><button data-cam="zout">－</button></div>
+      <div class="cclabel">mover</div>
+      <div class="ccrow"><button data-cam="pu">↑</button></div>
+      <div class="ccrow"><button data-cam="pl">←</button><button data-cam="pr">→</button></div>
+      <div class="ccrow"><button data-cam="pd">↓</button></div>
     </div>
     <div id="asmBar">
       <button id="asmPrev">◀ Anterior</button>
@@ -578,21 +596,44 @@ const stressShell=new THREE.Mesh(new THREE.CylinderGeometry(1.6,1.6,cylW+0.3,32,
 
 // ---- Camera
 let camTheta=0.72,camPhi=1.08,camRad=30,camTarget=new THREE.Vector3(0,-0.6,0);
-let dragging=false,px=0,py=0;
-function updateCam(){const x=camRad*Math.sin(camPhi)*Math.cos(camTheta); const y=camTarget.y+camRad*Math.cos(camPhi); const z=camRad*Math.sin(camPhi)*Math.sin(camTheta); camera.position.set(x,y,z); camera.lookAt(camTarget);}
-renderer.domElement.addEventListener('pointerdown',e=>{dragging=true;px=e.clientX;py=e.clientY;});
-window.addEventListener('pointerup',()=>dragging=false);
-window.addEventListener('pointermove',e=>{if(!dragging)return; camTheta-=(e.clientX-px)*0.008; camPhi-=(e.clientY-py)*0.008; camPhi=Math.max(0.2,Math.min(2.7,camPhi)); px=e.clientX; py=e.clientY;});
-renderer.domElement.addEventListener('wheel',e=>{e.preventDefault(); camRad=Math.max(14,Math.min(64,camRad+e.deltaY*0.025));},{passive:false});
+let dragging=false,panning=false,px=0,py=0,camGoal=null;
+function updateCam(){const x=camTarget.x+camRad*Math.sin(camPhi)*Math.cos(camTheta); const y=camTarget.y+camRad*Math.cos(camPhi); const z=camTarget.z+camRad*Math.sin(camPhi)*Math.sin(camTheta); camera.position.set(x,y,z); camera.lookAt(camTarget);}
+function panCam(dx,dy){const fwd=new THREE.Vector3().subVectors(camTarget,camera.position).normalize(); const right=new THREE.Vector3().crossVectors(fwd,camera.up).normalize(); const up=new THREE.Vector3().crossVectors(right,fwd).normalize(); const s=Math.max(0.4,camRad*0.05); camTarget.addScaledVector(right,dx*s); camTarget.addScaledVector(up,dy*s); camGoal=null;}
+function camGoalTick(dt){if(!camGoal)return; const k=Math.min(1,dt*4); camTheta+=(camGoal.t-camTheta)*k; camPhi+=(camGoal.p-camPhi)*k; camRad+=(camGoal.r-camRad)*k; camTarget.x+=(camGoal.tx-camTarget.x)*k; camTarget.y+=(camGoal.ty-camTarget.y)*k; camTarget.z+=(camGoal.tz-camTarget.z)*k; if(Math.abs(camGoal.r-camRad)<0.06&&Math.abs(camGoal.t-camTheta)<0.01&&Math.abs(camGoal.p-camPhi)<0.01)camGoal=null;}
+renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());
+renderer.domElement.addEventListener('pointerdown',e=>{dragging=true; panning=(e.button===2||e.shiftKey); camGoal=null; px=e.clientX;py=e.clientY;});
+window.addEventListener('pointerup',()=>{dragging=false;panning=false;});
+window.addEventListener('pointermove',e=>{if(!dragging)return; const ddx=e.clientX-px, ddy=e.clientY-py; if(panning){panCam(-ddx*0.03, ddy*0.03);} else {camTheta-=ddx*0.008; camPhi-=ddy*0.008; camPhi=Math.max(0.2,Math.min(2.7,camPhi));} px=e.clientX; py=e.clientY;});
+renderer.domElement.addEventListener('wheel',e=>{e.preventDefault(); camGoal=null; camRad=Math.max(6,Math.min(80,camRad+e.deltaY*0.025));},{passive:false});
 renderer.domElement.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
 let explodeTarget=0,explode=0;
 const views={perspectiva:{t:0.72,p:1.08,r:30,e:0},lado:{t:0,p:1.5708,r:28,e:0},motor:{t:Math.PI*0.95,p:1.25,r:22,e:0},apoio:{t:0.5,p:1.0,r:16,e:0},explodida:{t:0.72,p:1.08,r:40,e:1}};
-document.querySelectorAll('.views button').forEach(b=>{b.addEventListener('click',()=>{const v=views[b.dataset.view]; camTheta=v.t;camPhi=v.p;camRad=v.r;explodeTarget=v.e; if(b.dataset.view==='apoio'){camTarget.set(-wheelX,-0.6,0);} else {camTarget.set(0,-0.6,0);}});});
+document.querySelectorAll('.views button').forEach(b=>{b.addEventListener('click',()=>{const v=views[b.dataset.view]; camGoal=null; camTheta=v.t;camPhi=v.p;camRad=v.r;explodeTarget=v.e; if(b.dataset.view==='apoio'){camTarget.set(-wheelX,-0.6,0);} else {camTarget.set(0,-0.6,0);}});});
 const camHome={t:0.72,p:1.08,r:30};
 let held=null;
-function camStep(a){const rot=0.04,zoom=0.7; if(a==='left')camTheta-=rot; else if(a==='right')camTheta+=rot; else if(a==='up')camPhi=Math.max(0.2,camPhi-rot); else if(a==='down')camPhi=Math.min(2.7,camPhi+rot); else if(a==='zin')camRad=Math.max(14,camRad-zoom); else if(a==='zout')camRad=Math.min(64,camRad+zoom); else if(a==='reset'){camTheta=camHome.t;camPhi=camHome.p;camRad=camHome.r;camTarget.set(0,-0.6,0);}}
+function camStep(a){const rot=0.04,zoom=0.7,pan=0.5; camGoal=null;
+  if(a==='left')camTheta-=rot; else if(a==='right')camTheta+=rot;
+  else if(a==='up')camPhi=Math.max(0.2,camPhi-rot); else if(a==='down')camPhi=Math.min(2.7,camPhi+rot);
+  else if(a==='zin')camRad=Math.max(6,camRad-zoom); else if(a==='zout')camRad=Math.min(80,camRad+zoom);
+  else if(a==='pl')panCam(-pan,0); else if(a==='pr')panCam(pan,0); else if(a==='pu')panCam(0,pan); else if(a==='pd')panCam(0,-pan);
+  else if(a==='reset'){camTheta=camHome.t;camPhi=camHome.p;camRad=camHome.r;camTarget.set(0,-0.6,0);}}
 document.querySelectorAll('#camctl button').forEach(b=>{const a=b.dataset.cam; b.addEventListener('pointerdown',e=>{e.preventDefault(); if(a==='reset'){camStep(a);return;} held=a;}); ['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>held=null));});
 function camHeldTick(){if(held)camStep(held);}
+// seletor "Ir para…" — leva a câmara automaticamente a um ponto
+function camFocusGo(key){
+  const P={
+    geral:{t:0.62,p:1.05,r:34,tx:0,ty:-0.3,tz:0},
+    centro:{t:0.6,p:1.1,r:16,tx:0,ty:0,tz:0},
+    encaixeIn:{t:0.45,p:1.12,r:9,tx:-cylW/2,ty:0,tz:0},
+    encaixeOut:{t:0.45,p:1.12,r:9,tx:cylW/2,ty:0,tz:0},
+    anilhas:{t:0.5,p:1.1,r:9,tx:cylW/2+1.2,ty:0,tz:0},
+    motor:{t:Math.PI*0.95,p:1.2,r:16,tx:-wheelX-1,ty:0,tz:0},
+    rodaEsq:{t:0.5,p:1.0,r:10,tx:-wheelX,ty:0,tz:0},
+    rodaDir:{t:0.5,p:1.0,r:10,tx:wheelX,ty:0,tz:0}
+  };
+  if(P[key])camGoal=P[key];
+}
+document.getElementById('camFocus').addEventListener('change',e=>{camFocusGo(e.target.value); e.target.value='';});
 
 // ---- State + physics
 const S={speed:0,keyIn:0,keyOut:0,slot:0,tab:0,seat:0,nut:0,bal:0,lock:0,dia:420,health:100,failed:false};
@@ -987,7 +1028,7 @@ function resetAssembledX(){
   rotor.rotation.x=0;
 }
 function setMode(m){
-  mode=m;
+  mode=m; camGoal=null;
   document.getElementById('menu').style.display=(m==='menu')?'flex':'none';
   document.getElementById('panel').style.display=(m==='machine')?'':'none';
   document.getElementById('regPanel').style.display=(m==='machine')?'':'none';
@@ -1018,7 +1059,7 @@ document.getElementById('asmPrev').addEventListener('click',()=>{asmStep=Math.ma
 document.getElementById('asmGoMachine').addEventListener('click',()=>setMode('machine'));
 
 let last=performance.now();
-function loop(now){const dt=Math.min(0.05,(now-last)/1000); last=now; t+=dt; camHeldTick(); tick(dt); updateCam(); renderer.render(scene,camera); requestAnimationFrame(loop);}
+function loop(now){const dt=Math.min(0.05,(now-last)/1000); last=now; t+=dt; camHeldTick(); camGoalTick(dt); tick(dt); updateCam(); renderer.render(scene,camera); requestAnimationFrame(loop);}
 resize(); readControls(); setMode('menu'); updateCam(); requestAnimationFrame(loop);
 </script>
 </body>
