@@ -494,16 +494,19 @@ const fixSlot=new THREE.Mesh(new THREE.BoxGeometry(0.82,0.18,0.3), new THREE.Mes
 
 // ---- BUSHINGS (bucha): composite, both mouths. Inner one engages fixed piece's escatel; both have own key into cylinder
 const bushR=shaftR*1.35;   // OD ~Ø88 mm — cabe dentro do menor cilindro da gama (desenv. 300 -> Ø95)
-// bucha real: colar (flange) + manga cónica que afunila para a ponta + escatel (saliência) na borda da ponta
+// bucha real: anel grosso na extremidade -> troço direito curto -> afunilamento com o escatel ao longo do cone
 function makeBush(x){
   const g=new THREE.Group();
-  // construção canónica com a PONTA em +x
-  const collar=new THREE.Mesh(washerGeo(bushR, shaftR*1.02, 0.32), matBushDk); collar.position.x=-0.45; g.add(collar);
-  const cone=new THREE.Mesh(new THREE.CylinderGeometry(bushR*0.78,bushR,0.7,32,1,true), matBush); cone.rotation.z=-Math.PI/2; cone.position.x=0.35; g.add(cone);  // topo (menor) = ponta em +x
-  const bore=new THREE.Mesh(new THREE.CylinderGeometry(shaftR*1.02,shaftR*1.02,1.2,24,1,true), matBushDk); bore.rotation.z=Math.PI/2; bore.position.x=0.1; g.add(bore);
-  const tipRing=new THREE.Mesh(new THREE.RingGeometry(shaftR*1.02,bushR*0.78,40), matBushDk); tipRing.rotation.y=Math.PI/2; tipRing.position.x=0.7; g.add(tipRing);
-  // escatel: saliência retangular na borda da ponta (verde->vermelho c/ desgaste)
-  const tab=new THREE.Mesh(new THREE.BoxGeometry(0.26,0.16,0.2), matEscatel); tab.position.set(0.74, bushR*0.62, 0); g.add(tab);
+  // canónica: ponta (cone) em +x; anel grosso da extremidade em -x
+  const collar=new THREE.Mesh(washerGeo(bushR, shaftR*1.02, 0.34), matBushDk); collar.position.x=-0.5; g.add(collar);
+  // troço direito curto antes de afunilar
+  const straight=new THREE.Mesh(new THREE.CylinderGeometry(bushR*0.96,bushR*0.96,0.2,32,1,true), matBush); straight.rotation.z=Math.PI/2; straight.position.x=-0.23; g.add(straight);
+  // afunilamento (cone) até à ponta que entra no cilindro
+  const cone=new THREE.Mesh(new THREE.CylinderGeometry(bushR*0.72,bushR*0.96,0.72,32,1,true), matBush); cone.rotation.z=-Math.PI/2; cone.position.x=0.23; g.add(cone);
+  const bore=new THREE.Mesh(new THREE.CylinderGeometry(shaftR*1.02,shaftR*1.02,1.5,24,1,true), matBushDk); bore.rotation.z=Math.PI/2; bore.position.x=-0.1; g.add(bore);
+  const tipRing=new THREE.Mesh(new THREE.RingGeometry(shaftR*1.02,bushR*0.72,40), matBushDk); tipRing.rotation.y=Math.PI/2; tipRing.position.x=0.59; g.add(tipRing);
+  // escatel: saliência alongada AO LONGO do afunilamento (verde->vermelho c/ desgaste)
+  const tab=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.1,0.16), matEscatel); tab.position.set(0.23, bushR*0.82, 0); tab.rotation.z=-0.14; g.add(tab);
   g.position.x=x; if(x>0) g.rotation.y=Math.PI;   // lado de fora: roda 180º p/ a ponta apontar ao cilindro
   return g;
 }
@@ -512,8 +515,8 @@ const bushIn=makeBush(-cylW/2-0.4), bushOut=makeBush(cylW/2+0.4); rotor.add(bush
 // ---- CYLINDER (single solid roto cylinder: engraving on central ~750mm, ~50mm plain margins)
 const cylGroup=new THREE.Group(); rotor.add(cylGroup);
 // ranhuras (rasgos onde encaixa o escatel da bucha) — nas duas bocas, verde->vermelho c/ desgaste
-const ranhuraL=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.2,0.26), matRanhura); ranhuraL.position.set(-cylW/2+0.16, bushR*0.62, 0); cylGroup.add(ranhuraL);
-const ranhuraR=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.2,0.26), matRanhura); ranhuraR.position.set( cylW/2-0.16, bushR*0.62, 0); cylGroup.add(ranhuraR);
+const ranhuraL=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.12,0.2), matRanhura); ranhuraL.position.set(-cylW/2+0.32, bushR*0.82, 0); ranhuraL.rotation.z=0.14; cylGroup.add(ranhuraL);
+const ranhuraR=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.12,0.2), matRanhura); ranhuraR.position.set( cylW/2-0.32, bushR*0.82, 0); ranhuraR.rotation.z=-0.14; cylGroup.add(ranhuraR);
 function makeEngravingTexture(word){
   const cv=document.createElement('canvas'); cv.width=2048; cv.height=512;
   const ctx=cv.getContext('2d');
