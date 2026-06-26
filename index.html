@@ -110,6 +110,12 @@
   #asmDiaBox{position:absolute; left:50%; top:14px; transform:translateX(-50%); z-index:7; display:none; align-items:center; gap:10px; background:rgba(12,15,20,.92); border:1px solid var(--line); border-radius:8px; padding:8px 14px; font-size:11px; color:var(--ink);}
   #asmDiaBox input[type=range]{width:150px}
   #asmDiaBox #asmDiaVal{color:var(--accent); font-variant-numeric:tabular-nums; min-width:160px}
+  #asmWearBox{position:absolute; right:14px; top:60px; z-index:7; display:none; flex-direction:column; gap:7px; background:rgba(12,15,20,.92); border:1px solid var(--line); border-radius:8px; padding:10px 12px; font-size:10px; color:var(--ink); width:240px;}
+  #asmWearBox .awRow{display:flex; align-items:center; gap:6px}
+  #asmWearBox .awRow input[type=range]{flex:1}
+  #asmWearBox .awRow span:last-child{font-variant-numeric:tabular-nums; color:var(--accent); width:30px; text-align:right}
+  #asmWearBox .awGap{margin-top:2px; padding-top:6px; border-top:1px solid var(--line); font-size:11px; color:var(--ink-dim)}
+  #asmWearBox .awGap b{color:var(--warn); font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -178,6 +184,11 @@
       <span>Perímetro do cilindro</span>
       <input type="range" id="asmDia" min="300" max="800" value="420" step="10">
       <span id="asmDiaVal">420 mm → Ø134 · ~94 kg</span>
+    </div>
+    <div id="asmWearBox">
+      <div class="awRow"><span style="color:#46d39a">■</span> Ranhura (cilindro) <input type="range" id="asmSlot" min="0" max="100" value="0"> <span id="asmSlotVal">0%</span></div>
+      <div class="awRow"><span style="color:#46d39a">■</span> Escatel (bucha) <input type="range" id="asmTab" min="0" max="100" value="0"> <span id="asmTabVal">0%</span></div>
+      <div class="awGap">Folga escatel ↔ ranhura: <b id="asmGapVal">0.00 mm</b></div>
     </div>
   </div>
 
@@ -277,9 +288,12 @@
     <div class="sec">
       <h2>Etapa 2 · Desgaste / manutenção <span class="orig wear" style="margin-left:0">desgaste</span></h2>
       <div class="ctrl">
-        <div class="lbl"><span class="name">Escatel gasto<span class="orig wear">desgaste</span></span><span class="val" id="vSlot">0%</span></div>
+        <div class="lbl"><span class="name">Ranhura do cilindro (gasta)<span class="orig wear">desgaste</span></span><span class="val" id="vSlot">0%</span></div>
         <input type="range" id="dSlot" min="0" max="100" value="0">
-        <div class="desc">O rasgo da chaveta alargou — o cilindro "bate" a cada arranque/paragem.</div>
+        <div class="lbl" style="margin-top:9px"><span class="name">Escatel da bucha (gasto)<span class="orig wear">desgaste</span></span><span class="val" id="vTab">0%</span></div>
+        <input type="range" id="dTab" min="0" max="100" value="0">
+        <div class="desc">O escatel (saliência da bucha) encaixa na ranhura do furo do cilindro. Gastando-se qualquer um, o escatel anda solto na ranhura.</div>
+        <div class="xtra" id="gapNote">Folga escatel↔ranhura: 0.00 mm</div>
       </div>
       <div class="ctrl">
         <div class="lbl"><span class="name">Alojamento alargado<span class="orig wear">desgaste</span></span><span class="val" id="vSeat">0%</span></div>
@@ -368,6 +382,10 @@ const matWheel2=new THREE.MeshStandardMaterial({color:0x707d88,metalness:.75,rou
 const matBush=new THREE.MeshStandardMaterial({color:0xb8c2cd,metalness:.7,roughness:.4});
 const matBushDk=new THREE.MeshStandardMaterial({color:0x3a4651,metalness:.6,roughness:.5});
 const matKey=new THREE.MeshStandardMaterial({color:0x4cc2ff,metalness:.5,roughness:.4,emissive:0x10303f,emissiveIntensity:.5});
+// escatel (saliência da bucha) e ranhura (rasgo do cilindro): verde -> vermelho conforme o desgaste
+const matEscatel=new THREE.MeshStandardMaterial({color:0x46d39a,metalness:.4,roughness:.5,emissive:0x0a3a28,emissiveIntensity:.6});
+const matRanhura=new THREE.MeshStandardMaterial({color:0x46d39a,metalness:.4,roughness:.5,emissive:0x0a3a28,emissiveIntensity:.6});
+function wearColor(mat,w){const t=Math.max(0,Math.min(1,w/100)); mat.color.setRGB((0x46+(0xff-0x46)*t)/255,(0xd3+(0x52-0xd3)*t)/255,(0x9a+(0x52-0x9a)*t)/255); mat.emissive.setRGB(0.04+0.22*t,0.22*(1-t)+0.03*t,0.16*(1-t)+0.03*t);}
 const matFixed=new THREE.MeshStandardMaterial({color:0x6b7682,metalness:.7,roughness:.45});
 const matCyl=new THREE.MeshStandardMaterial({color:0x5d6b7a,metalness:.55,roughness:.42});
 const matCylEnd=new THREE.MeshStandardMaterial({color:0x3a4651,metalness:.5,roughness:.5});
@@ -476,18 +494,26 @@ const fixSlot=new THREE.Mesh(new THREE.BoxGeometry(0.82,0.18,0.3), new THREE.Mes
 
 // ---- BUSHINGS (bucha): composite, both mouths. Inner one engages fixed piece's escatel; both have own key into cylinder
 const bushR=shaftR*1.35;   // OD ~Ø88 mm — cabe dentro do menor cilindro da gama (desenv. 300 -> Ø95)
-function makeBush(x, withKeyTop){
+// bucha real: colar (flange) + manga cónica que afunila para a ponta + escatel (saliência) na borda da ponta
+function makeBush(x){
   const g=new THREE.Group();
-  const sleeve=new THREE.Mesh(washerGeo(bushR*0.92, shaftR*1.02, 0.55), matBush); g.add(sleeve);
-  const collar=new THREE.Mesh(washerGeo(bushR, shaftR*1.02, 0.3), matBushDk); collar.position.x=(x<0?0.32:-0.32); g.add(collar);
-  // its own key (chaveta) that goes into the cylinder escatel (hidden inside the mouth)
-  const k=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.12,0.24), matKey); k.position.set((x<0?-0.2:0.2), bushR*0.92+0.02, 0); g.add(k);
-  g.position.x=x; return g;
+  // construção canónica com a PONTA em +x
+  const collar=new THREE.Mesh(washerGeo(bushR, shaftR*1.02, 0.32), matBushDk); collar.position.x=-0.45; g.add(collar);
+  const cone=new THREE.Mesh(new THREE.CylinderGeometry(bushR*0.78,bushR,0.7,32,1,true), matBush); cone.rotation.z=-Math.PI/2; cone.position.x=0.35; g.add(cone);  // topo (menor) = ponta em +x
+  const bore=new THREE.Mesh(new THREE.CylinderGeometry(shaftR*1.02,shaftR*1.02,1.2,24,1,true), matBushDk); bore.rotation.z=Math.PI/2; bore.position.x=0.1; g.add(bore);
+  const tipRing=new THREE.Mesh(new THREE.RingGeometry(shaftR*1.02,bushR*0.78,40), matBushDk); tipRing.rotation.y=Math.PI/2; tipRing.position.x=0.7; g.add(tipRing);
+  // escatel: saliência retangular na borda da ponta (verde->vermelho c/ desgaste)
+  const tab=new THREE.Mesh(new THREE.BoxGeometry(0.26,0.16,0.2), matEscatel); tab.position.set(0.74, bushR*0.62, 0); g.add(tab);
+  g.position.x=x; if(x>0) g.rotation.y=Math.PI;   // lado de fora: roda 180º p/ a ponta apontar ao cilindro
+  return g;
 }
-const bushIn=makeBush(-cylW/2-0.4,true), bushOut=makeBush(cylW/2+0.4,true); rotor.add(bushIn,bushOut);
+const bushIn=makeBush(-cylW/2-0.4), bushOut=makeBush(cylW/2+0.4); rotor.add(bushIn,bushOut);
 
 // ---- CYLINDER (single solid roto cylinder: engraving on central ~750mm, ~50mm plain margins)
 const cylGroup=new THREE.Group(); rotor.add(cylGroup);
+// ranhuras (rasgos onde encaixa o escatel da bucha) — nas duas bocas, verde->vermelho c/ desgaste
+const ranhuraL=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.2,0.26), matRanhura); ranhuraL.position.set(-cylW/2+0.16, bushR*0.62, 0); cylGroup.add(ranhuraL);
+const ranhuraR=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.2,0.26), matRanhura); ranhuraR.position.set( cylW/2-0.16, bushR*0.62, 0); cylGroup.add(ranhuraR);
 function makeEngravingTexture(word){
   const cv=document.createElement('canvas'); cv.width=2048; cv.height=512;
   const ctx=cv.getContext('2d');
@@ -562,15 +588,17 @@ document.querySelectorAll('#camctl button').forEach(b=>{const a=b.dataset.cam; b
 function camHeldTick(){if(held)camStep(held);}
 
 // ---- State + physics
-const S={speed:0,keyIn:0,keyOut:0,slot:0,seat:0,nut:0,bal:0,lock:0,dia:420,health:100,failed:false};
-const E={}; ['speed','dKeyIn','dKeyOut','dSlot','dSeat','dNut','dBal','lock','dia','spVal','spState','vKeyIn','vKeyOut','vSlot','vSeat','vNut','vNutNow','nutBar','vBal','vDia','massNote','seatNote','lockTag','lockDesc','hRpm','hDia','hEcc','hVib','hDef','status','healthBar','healthPct','btnReset','btnReseat'].forEach(id=>E[id]=document.getElementById(id));
+const S={speed:0,keyIn:0,keyOut:0,slot:0,tab:0,seat:0,nut:0,bal:0,lock:0,dia:420,health:100,failed:false};
+const E={}; ['speed','dKeyIn','dKeyOut','dSlot','dTab','dSeat','dNut','dBal','lock','dia','spVal','spState','vKeyIn','vKeyOut','vSlot','vTab','gapNote','vSeat','vNut','vNutNow','nutBar','vBal','vDia','massNote','seatNote','lockTag','lockDesc','hRpm','hDia','hEcc','hVib','hDef','status','healthBar','healthPct','btnReset','btnReseat'].forEach(id=>E[id]=document.getElementById(id));
+const MAXGAP=2.5;  // mm de folga a 100% de desgaste combinado
+function gapMM(){return ((S.slot+S.tab)/2)/100*MAXGAP;}
 const lockNames=['nenhum','contra-porca','anilha freio','patilha dobrável','cavilha'];
 const lockDescs=['Sem travamento — só aperto por atrito. Vibração desaperta com facilidade.','Segunda porca apertada contra a primeira. Trava por atrito — simples e eficaz.','Anilha de pressão/serrilhada (tipo Nord-Lock). Boa resistência à vibração.','Anilha com patilha dobrada sobre a porca. Travamento mecânico positivo.','Furo + cavilha atravessada. Não depende de atrito — não solta.'];
 const lockResist=[0,0.55,0.75,0.9,0.98];
 function pctTxt(v){return Math.round(v)+'%'}
 function cls(el,v){el.className='val'+(v>=66?' bad':v>=33?' warn':'')}
 function readControls(){
-  S.speed=+E.speed.value;S.keyIn=+E.dKeyIn.value;S.keyOut=+E.dKeyOut.value;S.slot=+E.dSlot.value;S.seat=+E.dSeat.value;S.nut=+E.dNut.value;S.bal=+E.dBal.value;S.lock=+E.lock.value;
+  S.speed=+E.speed.value;S.keyIn=+E.dKeyIn.value;S.keyOut=+E.dKeyOut.value;S.slot=+E.dSlot.value;S.tab=+E.dTab.value;S.seat=+E.dSeat.value;S.nut=+E.dNut.value;S.bal=+E.dBal.value;S.lock=+E.lock.value;
   const nd=+E.dia.value; if(nd!==S.dia){S.dia=nd; buildCylinder(S.dia);}
   const diaCalc=Math.round(S.dia/Math.PI);
   E.spVal.textContent=S.speed; E.vDia.textContent=S.dia+' mm'; E.hDia.textContent=S.dia+' / Ø'+diaCalc+' mm';
@@ -579,16 +607,19 @@ function readControls(){
   E.vKeyIn.textContent=pctTxt(S.keyIn);cls(E.vKeyIn,S.keyIn);
   E.vKeyOut.textContent=pctTxt(S.keyOut);cls(E.vKeyOut,S.keyOut);
   E.vSlot.textContent=pctTxt(S.slot);cls(E.vSlot,S.slot);
+  E.vTab.textContent=pctTxt(S.tab);cls(E.vTab,S.tab);
+  E.gapNote.textContent='Folga escatel↔ranhura: '+gapMM().toFixed(2)+' mm';
   E.vSeat.textContent=pctTxt(S.seat);cls(E.vSeat,S.seat);
   E.vNut.textContent=pctTxt(S.nut);cls(E.vNut,S.nut);
   E.vBal.textContent=pctTxt(S.bal);cls(E.vBal,S.bal);
   const nShim=Math.round(S.seat/100*4);
   E.seatNote.textContent=nShim>0?(nShim+' anilha'+(nShim>1?'s':'')+' no lado do aperto p/ empurrar a bucha p/ dentro — paliativo, não tira a folga'):'';
   E.lockTag.textContent=lockNames[S.lock]; E.lockDesc.textContent=lockDescs[S.lock];
-  [['dKeyIn',S.keyIn],['dKeyOut',S.keyOut],['dSlot',S.slot],['dSeat',S.seat],['dNut',S.nut],['dBal',S.bal]].forEach(([id,v])=>{const e=document.getElementById(id); e.classList.toggle('hot',v>=33&&v<66); e.classList.toggle('crit',v>=66);});
+  wearColor(matEscatel,S.tab); wearColor(matRanhura,S.slot);
+  [['dKeyIn',S.keyIn],['dKeyOut',S.keyOut],['dSlot',S.slot],['dTab',S.tab],['dSeat',S.seat],['dNut',S.nut],['dBal',S.bal]].forEach(([id,v])=>{const e=document.getElementById(id); e.classList.toggle('hot',v>=33&&v<66); e.classList.toggle('crit',v>=66);});
 }
-['speed','dKeyIn','dKeyOut','dSlot','dSeat','dNut','dBal','lock','dia'].forEach(id=>document.getElementById(id).addEventListener('input',readControls));
-E.btnReset.addEventListener('click',()=>{['speed','dKeyIn','dKeyOut','dSlot','dSeat','dNut','dBal'].forEach(id=>document.getElementById(id).value=0); E.lock.value=0; S.health=100;S.failed=false;nutDrift=0; readControls();});
+['speed','dKeyIn','dKeyOut','dSlot','dTab','dSeat','dNut','dBal','lock','dia'].forEach(id=>document.getElementById(id).addEventListener('input',readControls));
+E.btnReset.addEventListener('click',()=>{['speed','dKeyIn','dKeyOut','dSlot','dTab','dSeat','dNut','dBal'].forEach(id=>document.getElementById(id).value=0); E.lock.value=0; S.health=100;S.failed=false;nutDrift=0; readControls();});
 E.btnReseat.addEventListener('click',()=>{S.health=100;S.failed=false;nutDrift=0;});
 
 let nutDrift=0,t=0,angle=0,collapse=0;
@@ -598,7 +629,7 @@ function instability(){
   const massF=(0.4+Math.pow(S.dia/420,2))/1.4;   // veio pesado (base 0.4) + cilindro ~perímetro²; =1 no default 420
   const keyAvg=(S.keyIn+S.keyOut)/2, keyTilt=Math.abs(S.keyIn-S.keyOut);
   const eKey=(keyAvg/100)*(0.9+0.6*sp)+(keyTilt/100)*(0.35+0.45*sp);
-  const eSlot=(S.slot/100)*(0.3+1.4*sp*sp);
+  const eSlot=(((S.slot+S.tab)/2)/100)*(0.3+1.4*sp*sp);   // folga escatel↔ranhura (desgaste de ambos)
   const eSeat=(S.seat/100)*(0.8+0.7*sp);
   const nutEff=Math.min(100,S.nut+nutDrift);
   const eNut=(nutEff/100)*(0.5+2.2*sp);   // bucha a sair -> perde centragem -> vibra cada vez mais
@@ -616,7 +647,7 @@ function tick(dt){
   // Efeito Junker: a folga no escatel/chaveta faz o cilindro rodar encavalitado -> golpe radial a cada volta -> auto-desaperto das porcas.
   // Mesmo com as anilhas bem apertadas na montagem (S.nut=0), o desgaste sozinho desaperta-as durante a tiragem.
   if(sp>0.05&&!S.failed){
-    const play=(S.slot/100)*0.7 + ((S.keyIn+S.keyOut)/2/100)*0.5 + (Math.abs(S.keyIn-S.keyOut)/100)*0.6 + (S.seat/100)*0.3;
+    const play=(((S.slot+S.tab)/2)/100)*0.8 + ((S.keyIn+S.keyOut)/2/100)*0.5 + (Math.abs(S.keyIn-S.keyOut)/100)*0.6 + (S.seat/100)*0.3;
     // Início: o aperto com força segura (rampa baixa, "ainda aguenta"). À medida que cede perde pré-carga e acelera (rampa->1).
     const ramp=0.12 + 0.88*(nutEff/100);
     const loosen=((vib/100)*3.2 + play*sp*2.6*massF)*ramp;   // cilindro mais pesado -> mais força transversal -> desaperta mais depressa
@@ -649,9 +680,10 @@ function tick(dt){
   cylGroup.rotation.z=(keyDiffV/100)*0.06+(keyAvgV/100)*0.02; cylGroup.rotation.y=(keyDiffV/100)*0.045;
   const stress=Math.min(1,ecc/2.2); stressMat.opacity=S.failed?0.9:stress*0.5;
   matCylEngraved.emissive.setHex(0xff3030); matCylEngraved.emissiveIntensity=S.failed?0.6:stress*0.4;
+  wearColor(matEscatel,S.tab); wearColor(matRanhura,S.slot);
   explode+=(explodeTarget-explode)*Math.min(1,dt*4); applyExplode(explode);
   E.hRpm.textContent=S.speed+' rpm'; E.hEcc.textContent=ecc.toFixed(2)+' mm'; E.hVib.textContent=Math.round(vib)+' %';
-  const d=[]; if(S.keyIn||S.keyOut)d.push('chaveta'); if(S.slot)d.push('escatel'); if(S.seat)d.push('alojamento'); if(nutEff>2)d.push('anilhas'); if(S.bal)d.push('desequil.');
+  const d=[]; if(S.keyIn||S.keyOut)d.push('chaveta'); if(S.slot||S.tab)d.push('escatel/ranhura'); if(S.seat)d.push('alojamento'); if(nutEff>2)d.push('anilhas'); if(S.bal)d.push('desequil.');
   E.hDef.textContent=d.length?d.join(', '):'nenhum';
   E.healthBar.style.width=S.health+'%'; E.healthBar.style.background=S.health>60?'#46d39a':S.health>30?'#ffb13f':'#ff5252'; E.healthPct.textContent=Math.round(S.health)+'%';
   let st,col;
@@ -907,7 +939,7 @@ function applyExplode(e){
     cylGroup.position.y-=c*0.18; cylGroup.rotation.z+=c*0.06;
   }
 }
-function readLight(){S.speed=+E.speed.value;S.keyIn=+E.dKeyIn.value;S.keyOut=+E.dKeyOut.value;S.slot=+E.dSlot.value;S.seat=+E.dSeat.value;S.nut=+E.dNut.value;S.bal=+E.dBal.value;S.lock=+E.lock.value;E.spVal.textContent=S.speed;}
+function readLight(){S.speed=+E.speed.value;S.keyIn=+E.dKeyIn.value;S.keyOut=+E.dKeyOut.value;S.slot=+E.dSlot.value;S.tab=+E.dTab.value;S.seat=+E.dSeat.value;S.nut=+E.dNut.value;S.bal=+E.dBal.value;S.lock=+E.lock.value;E.spVal.textContent=S.speed;}
 
 // ---- Fases: montagem (Fase 1) e troca de modo
 const ASM_STEPS=['1/6 · Cilindro pousado na mesa','2/6 · Entra o veio + bucha de dentro (escatel)','3/6 · Bucha de fora inserida','4/6 · Anilhas colocadas e apertadas','5/6 · Rodas inseridas nas pontas','6/6 · Montado — pronto para máquina'];
@@ -930,6 +962,12 @@ function assemblyTick(dt){
   cylGroup.position.set(0,0,0); cylGroup.rotation.set(0,0,0);
   shimsOut.forEach(s=>s.visible=false);
   stressMat.opacity=0; matCylEngraved.emissiveIntensity=0;
+  wearColor(matEscatel,S.tab); wearColor(matRanhura,S.slot);
+}
+function setAsmCamera(step){
+  if(step===1){ camTarget.set(-cylW/2,0,0); camRad=11; camTheta=0.45; camPhi=1.12; }       // zoom no encaixe do lado de dentro
+  else if(step===2||step===3){ camTarget.set(cylW/2,0,0); camRad=11; camTheta=0.45; camPhi=1.12; } // zoom no encaixe do lado de fora
+  else { camTarget.set(0,-0.3,0); camRad=34; camTheta=0.62; camPhi=1.05; }
 }
 function resetAssembledX(){
   shaftSegs.forEach(s=>{s.position.x=s.userData.baseX; s.position.y=0;});
@@ -948,8 +986,9 @@ function setMode(m){
   document.querySelector('.legend').style.display=(m==='machine')?'':'none';
   document.querySelector('.tags').style.display=(m==='machine')?'':'none';
   document.getElementById('asmDiaBox').style.display=(m==='assembly')?'flex':'none';
+  document.getElementById('asmWearBox').style.display=(m==='assembly')?'flex':'none';
   machine.visible=(m==='machine'); motor.visible=(m==='machine'); table.visible=(m==='assembly');
-  if(m==='assembly'){ asmStep=0; asm=0; E.speed.value=0; asmDia.value=E.dia.value; updateAsmDia(); readControls(); updateAsmLabel(); camTheta=0.62; camPhi=1.05; camRad=34; camTarget.set(0,-0.6,0); }
+  if(m==='assembly'){ asmStep=0; asm=0; E.speed.value=0; asmDia.value=E.dia.value; updateAsmDia(); asmSlot.value=E.dSlot.value; asmTab.value=E.dTab.value; updateAsmWear(); readControls(); updateAsmLabel(); setAsmCamera(0); }
   else { resetAssembledX(); }
   if(m==='machine'){ camTheta=camHome.t; camPhi=camHome.p; camRad=camHome.r; camTarget.set(0,-0.6,0); }
   resize();
@@ -957,10 +996,14 @@ function setMode(m){
 const asmDia=document.getElementById('asmDia'), asmDiaVal=document.getElementById('asmDiaVal');
 function updateAsmDia(){const p=+asmDia.value, d=Math.round(p/Math.PI), Rm=(p/Math.PI)/2/1000, kg=Math.round(Math.PI*Rm*Rm*0.85*7850); asmDiaVal.textContent=p+' mm → Ø'+d+' · ~'+kg+' kg';}
 asmDia.addEventListener('input',()=>{ E.dia.value=asmDia.value; readControls(); updateAsmDia(); });
+const asmSlot=document.getElementById('asmSlot'), asmTab=document.getElementById('asmTab');
+function updateAsmWear(){document.getElementById('asmSlotVal').textContent=asmSlot.value+'%'; document.getElementById('asmTabVal').textContent=asmTab.value+'%'; document.getElementById('asmGapVal').textContent=gapMM().toFixed(2)+' mm';}
+asmSlot.addEventListener('input',()=>{ E.dSlot.value=asmSlot.value; readControls(); updateAsmWear(); });
+asmTab.addEventListener('input',()=>{ E.dTab.value=asmTab.value; readControls(); updateAsmWear(); });
 document.querySelectorAll('#menu .menuBtn').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.phase)));
 document.getElementById('homeBtn').addEventListener('click',()=>setMode('menu'));
-document.getElementById('asmNext').addEventListener('click',()=>{asmStep=Math.min(5,asmStep+1); updateAsmLabel();});
-document.getElementById('asmPrev').addEventListener('click',()=>{asmStep=Math.max(0,asmStep-1); updateAsmLabel();});
+document.getElementById('asmNext').addEventListener('click',()=>{asmStep=Math.min(5,asmStep+1); updateAsmLabel(); setAsmCamera(asmStep);});
+document.getElementById('asmPrev').addEventListener('click',()=>{asmStep=Math.max(0,asmStep-1); updateAsmLabel(); setAsmCamera(asmStep);});
 document.getElementById('asmGoMachine').addEventListener('click',()=>setMode('machine'));
 
 let last=performance.now();
