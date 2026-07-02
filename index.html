@@ -88,6 +88,9 @@
   #panel::-webkit-scrollbar{width:8px}
   #panel::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px}
   #clogPanel{width:340px; border-left:1px solid var(--line); background:var(--panel); overflow-y:auto; display:none;}
+  .inkRow{display:flex; gap:6px; margin-bottom:6px}
+  .inkBtn{flex:1; padding:9px 4px; border:2px solid var(--line); border-radius:4px; cursor:pointer; font-family:var(--mono); font-size:10px; letter-spacing:.03em; color:#fff; opacity:.5; touch-action:manipulation;}
+  .inkBtn.on{opacity:1; border-color:#fff}
   #clogPanel::-webkit-scrollbar{width:8px}
   #clogPanel::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px}
   @media (max-width:820px){ #clogPanel{width:100%; border-left:none; border-top:1px solid var(--line); max-height:46vh} }
@@ -414,19 +417,30 @@
     <div class="sec">
       <h2>Prova de impressão</h2>
       <canvas id="cPreview" width="300" height="140" style="width:100%;border-radius:3px;background:#efe9dd;display:block"></canvas>
-      <div class="desc" id="cPrevNote" style="margin-top:6px">Os pontos brancos são alvéolos entupidos que já não transferem tinta.</div>
+      <div class="desc" id="cPrevNote" style="margin-top:6px">Trabalho em cromia (CMYK). A cor selecionada no tinteiro perde primeiro as <b>altas-luzes</b> (alvéolos pequenos secam primeiro, logo a seguir à lâmina) e depois a densidade nos cheios.</div>
     </div>
     <div class="sec">
-      <h2>Tinta</h2>
+      <h2>Tinta · acetato de etilo</h2>
+      <div class="desc" style="margin-bottom:12px">Tinta base solvente para filme plástico — o <b>acetato de etilo evapora muito depressa</b>. Se nada o travar, seca dentro dos alvéolos entre a lâmina e o ponto de impressão.</div>
+      <div class="ctrl">
+        <div class="lbl"><span class="name">Cor no tinteiro (estação)</span></div>
+        <div class="inkRow">
+          <button class="inkBtn on" data-ink="0" style="background:#0e8cc3">Cyan</button>
+          <button class="inkBtn" data-ink="1" style="background:#d61f7c">Magenta</button>
+          <button class="inkBtn" data-ink="2" style="background:#c9b400;color:#20222a">Amarelo</button>
+          <button class="inkBtn" data-ink="3" style="background:#1c1c1c">Preto</button>
+        </div>
+        <div class="desc">A cor selecionada é a que entope — vê o efeito dela na prova em cromia.</div>
+      </div>
+      <div class="ctrl">
+        <div class="lbl"><span class="name">Retardador (solvente lento)<span class="orig oper">operador</span></span><span class="val" id="vCRet">0%</span></div>
+        <input type="range" id="cRet" min="0" max="100" value="0">
+        <div class="desc">Mistura de solvente lento trava a secagem nos alvéolos. <b>Em excesso (&gt;65%)</b> a tinta não seca no filme — bloqueio/odor e refugo.</div>
+      </div>
       <div class="ctrl">
         <div class="lbl"><span class="name">Viscosidade alta<span class="orig oper">operador</span></span><span class="val" id="vCVisc">30%</span></div>
         <input type="range" id="cVisc" min="0" max="100" value="30">
-        <div class="desc">Tinta grossa (sem controlo de viscosidade) agarra e seca nas células.</div>
-      </div>
-      <div class="ctrl">
-        <div class="lbl"><span class="name">Solvente rápido / secagem<span class="orig oper">operador</span></span><span class="val" id="vCSolv">30%</span></div>
-        <input type="range" id="cSolv" min="0" max="100" value="30">
-        <div class="desc">Solvente demasiado rápido evapora antes da transferência — seca dentro do alvéolo.</div>
+        <div class="desc">Tinta grossa (falta de solvente / sem controlo de viscosidade) seca mais depressa nas células e transfere pior. Corrige-se adicionando solvente aos poucos.</div>
       </div>
       <div class="ctrl">
         <div class="lbl"><span class="name">Tinta suja / má filtragem<span class="orig maint">manutenção</span></span><span class="val" id="vCDirt">0%</span></div>
@@ -689,7 +703,7 @@ const matTray=new THREE.MeshStandardMaterial({color:0x232c36,metalness:.6,roughn
 const matInk=new THREE.MeshStandardMaterial({color:0x0d7fae,metalness:.2,roughness:.15});
 const matRubber=new THREE.MeshStandardMaterial({color:0x30353f,metalness:.15,roughness:.85});
 const matBlade=new THREE.MeshStandardMaterial({color:0xd7dde3,metalness:.85,roughness:.25});
-let pressorSpin=null, pressorR=0.45;
+let pressorSpin=null, pressorR=0.45, dryArcMat=null;
 function buildInkUnit(){
   while(inkUnit.children.length)inkUnit.remove(inkUnit.children[0]);
   const R=cylR();
@@ -706,6 +720,11 @@ function buildInkUnit(){
   const holder=new THREE.Mesh(new THREE.BoxGeometry(cylW+0.5,0.12,0.2), matTray);
   holder.position.set(0, cp.y+out.y*0.52, cp.z+out.z*0.52); holder.rotation.x=Math.PI-a; inkUnit.add(holder);
   [-1,1].forEach(s=>{const arm=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.14,1.1), matTray); arm.position.set(s*(cylW/2+0.35), cp.y+out.y*0.6, cp.z+out.z*0.6+0.5); inkUnit.add(arm);});
+  // zona de secagem (lâmina -> ponto de impressão): é aqui que o acetato evapora dos alvéolos abertos
+  dryArcMat=new THREE.MeshBasicMaterial({color:0xff7a30,transparent:true,opacity:0});
+  const dryGrp=new THREE.Group(); dryGrp.rotation.x=-a; inkUnit.add(dryGrp);
+  const dryArc=new THREE.Mesh(new THREE.TorusGeometry(R+0.03,0.02,8,40,Math.PI/2-a), dryArcMat);
+  dryArc.rotation.y=-Math.PI/2; dryGrp.add(dryArc);
   // pressor: rolo de borracha em cima, encostado ao cilindro
   pressorR=Math.max(0.35,R*0.5);
   pressorSpin=new THREE.Group(); pressorSpin.position.y=R+pressorR-0.02; inkUnit.add(pressorSpin);
@@ -724,9 +743,9 @@ function paintClog(level){
   if(Math.abs(level-clogPainted)<1.2)return; clogPainted=level;
   clogCtx.clearRect(0,0,1024,256);
   const n=Math.round(level/100*clogSpots.length);
-  clogCtx.fillStyle='rgba(66,42,20,0.9)';
+  clogCtx.fillStyle=INKS[inkSel].css;   // tinta seca da cor que está no tinteiro
   for(let i=0;i<n;i++){const s=clogSpots[i]; clogCtx.beginPath(); clogCtx.arc(s.x,s.y,s.r,0,Math.PI*2); clogCtx.fill();}
-  if(level>55){clogCtx.fillStyle='rgba(60,38,18,'+(((level-55)/100).toFixed(2))+')'; clogCtx.fillRect(0,0,1024,256);}
+  if(level>55){clogCtx.globalAlpha=(level-55)/100; clogCtx.fillRect(0,0,1024,256); clogCtx.globalAlpha=1;}
   clogTex.needsUpdate=true;
 }
 let clogOverlay=null;
@@ -835,7 +854,7 @@ function instability(){
   return {ecc,vib,sp,nutEff,massF};
 }
 function tick(dt){
-  if(mode==='menu'){ rotor.rotation.x+=dt*0.2; return; }
+  if(mode==='menu'){ rotor.rotation.x-=dt*0.2; return; }
   if(mode==='assembly'){ assemblyTick(dt); return; }
   if(mode==='clog'){ clogTick(dt); return; }
   readLight();
@@ -852,7 +871,7 @@ function tick(dt){
   }
   const tol=1.1;
   if(ecc>tol&&sp>0.05&&!S.failed){S.health=Math.max(0,S.health-(ecc-tol)*sp*38*massF*dt); if(S.health<=0){S.health=0;S.failed=true;}}
-  const rpmRad=(S.speed/60)*Math.PI*2; angle+=(S.failed?rpmRad*0.15:rpmRad)*dt; rotor.rotation.x=angle;
+  const rpmRad=(S.speed/60)*Math.PI*2; angle+=(S.failed?rpmRad*0.15:rpmRad)*dt; rotor.rotation.x=-angle;   // sentido real: sobe do tinteiro p/ a lâmina
   // --- WHIRL (correção B): as rodas de apoio são nós fixos (rolamento na meia-cana); o veio+cilindro encurvam a meio vão.
   // A deflexão é constante no referencial que roda -> ao girar gera a órbita; nos apoios (x=±wheelX) é zero, logo não oscilam.
   const amp=Math.min(1.0, ecc*0.14*(0.7+0.4*massF)) + (S.slot/100)*0.015*Math.sin(t*45)*sp;   // mais massa -> maior deflexão
@@ -1140,67 +1159,110 @@ function readLight(){S.speed=+E.speed.value;S.keyIn=+E.dKeyIn.value;S.keyOut=+E.
 
 // ---- Fase 3: entupimento dos alvéolos (tinteiro + raclete + pressor)
 const CG={clog:0,stops:0};
-const cEl={}; ['cSpeed','cSpVal','cSpState','cVisc','vCVisc','cSolv','vCSolv','cDirt','vCDirt','cBlade','vCBlade','cBladeNote','cStop','cClean','cClogVal','cClogBar','cQual','cScrap','cVerdict','cPreview'].forEach(id=>cEl[id]=document.getElementById(id));
+// tintas de rotogravura base solvente (acetato de etilo — evapora muito depressa)
+const INKS=[
+  {n:'Cyan',    css:'rgba(10,79,110,0.9)',  tin:0x0e8cc3},
+  {n:'Magenta', css:'rgba(110,16,64,0.9)',  tin:0xd61f7c},
+  {n:'Amarelo', css:'rgba(140,120,10,0.9)', tin:0xe8cf00},
+  {n:'Preto',   css:'rgba(18,18,18,0.92)',  tin:0x1c1c1c}
+];
+let inkSel=0;
+const cEl={}; ['cSpeed','cSpVal','cSpState','cVisc','vCVisc','cRet','vCRet','cDirt','vCDirt','cBlade','vCBlade','cBladeNote','cStop','cClean','cClogVal','cClogBar','cQual','cScrap','cVerdict','cPreview'].forEach(id=>cEl[id]=document.getElementById(id));
 const cPrevCtx=cEl.cPreview.getContext('2d');
-function updateClogLabels(){cEl.vCVisc.textContent=cEl.cVisc.value+'%';cEl.vCSolv.textContent=cEl.cSolv.value+'%';cEl.vCDirt.textContent=cEl.cDirt.value+'%';cEl.vCBlade.textContent=cEl.cBlade.value+'%';}
-['cVisc','cSolv','cDirt','cBlade'].forEach(id=>cEl[id].addEventListener('input',updateClogLabels));
+function updateClogLabels(){cEl.vCVisc.textContent=cEl.cVisc.value+'%';cEl.vCRet.textContent=cEl.cRet.value+'%';cEl.vCDirt.textContent=cEl.cDirt.value+'%';cEl.vCBlade.textContent=cEl.cBlade.value+'%';}
+['cVisc','cRet','cDirt','cBlade'].forEach(id=>cEl[id].addEventListener('input',updateClogLabels));
 updateClogLabels();
-cEl.cStop.addEventListener('click',()=>{CG.clog=Math.min(100,CG.clog+12+(+cEl.cSolv.value)*0.18); CG.stops++;});
+document.querySelectorAll('.inkBtn').forEach(b=>b.addEventListener('click',()=>{
+  inkSel=+b.dataset.ink;
+  document.querySelectorAll('.inkBtn').forEach(x=>x.classList.toggle('on',x===b));
+  matInk.color.setHex(INKS[inkSel].tin);
+  clogPainted=-1; prevPainted=-1;   // repintar cilindro e prova na nova cor
+}));
+// secagem do acetato: base rápida, agravada por viscosidade alta, travada pelo retardador
+function dryingRate(){const visc=+cEl.cVisc.value, ret=+cEl.cRet.value; return (0.55+visc/100*0.45)*(1-0.72*ret/100);}
+cEl.cStop.addEventListener('click',()=>{CG.clog=Math.min(100,CG.clog+8+dryingRate()*30); CG.stops++;});
 cEl.cClean.addEventListener('click',()=>{CG.clog=CG.clog*0.08; if(CG.clog<2)CG.clog=0; CG.stops=0;});
+// ---- prova de impressão em cromia (CMYK): a cor selecionada no tinteiro perde primeiro as ALTAS-LUZES (alvéolos pequenos)
+let prevBase=null, prevPainted=-1, prevInkP=-1, prevVeu=null, prevRis=null;
+function buildPrevBase(){
+  const W=300,H=140, oc=document.createElement('canvas'); oc.width=W; oc.height=H; const c=oc.getContext('2d');
+  const g=c.createLinearGradient(0,0,0,H); g.addColorStop(0,'#5aa8d8'); g.addColorStop(0.55,'#cfe6f3'); g.addColorStop(1,'#f2efe6');
+  c.fillStyle=g; c.fillRect(0,0,W,H);                                        // céu em degradé (altas-luzes de cyan)
+  c.fillStyle='#f4d63a'; c.beginPath(); c.arc(46,32,17,0,Math.PI*2); c.fill();  // sol (amarelo)
+  c.fillStyle='rgba(244,214,58,0.35)'; c.beginPath(); c.arc(46,32,26,0,Math.PI*2); c.fill();
+  c.fillStyle='#4aa257'; c.beginPath(); c.moveTo(0,92); c.quadraticCurveTo(70,68,150,90); c.quadraticCurveTo(230,110,300,86); c.lineTo(300,140); c.lineTo(0,140); c.closePath(); c.fill();  // colinas
+  c.fillStyle='#2e7d3d'; c.beginPath(); c.moveTo(0,108); c.quadraticCurveTo(120,92,300,110); c.lineTo(300,140); c.lineTo(0,140); c.closePath(); c.fill();
+  c.fillStyle='#f08a24'; c.beginPath(); c.arc(232,66,19,0,Math.PI*2); c.fill();  // fruto (M+Y)
+  c.fillStyle='#d96f10'; c.beginPath(); c.arc(237,71,12,0,Math.PI*2); c.fill();
+  c.fillStyle='#c4202a'; c.fillRect(0,106,W,34);                              // cinta vermelha
+  c.fillStyle='#ffffff'; c.font='bold 19px Georgia, serif'; c.textAlign='center'; c.textBaseline='middle'; c.fillText('ObaniA', W/2, 121);
+  c.fillStyle='rgba(255,255,255,0.85)'; c.font='italic 9px Georgia, serif'; c.fillText('embalagem flexível · cromia CMYK', W/2, 133);
+  prevBase=c.getImageData(0,0,W,H);
+}
 function drawClogPreview(level,veu,riscos){
-  const ctx=cPrevCtx,W=300,H=140;
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle='#efe9dd'; ctx.fillRect(0,0,W,H);
-  if(veu){ctx.fillStyle='rgba(13,127,174,0.15)'; ctx.fillRect(0,0,W,H);}   // véu: fundo todo tingido
-  ctx.fillStyle='#0d7fae'; ctx.fillRect(20,22,W-40,H-44);
-  ctx.fillStyle='rgba(255,255,255,0.95)'; ctx.font='bold 26px Georgia, serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText('ObaniA', W/2, H/2);
-  // falhas: alvéolos entupidos deixam pontos por imprimir
-  const n=Math.round(level/100*clogSpots.length*0.8);
-  ctx.fillStyle='#efe9dd';
-  for(let i=0;i<n;i++){const s=clogSpots[i]; const x=20+(s.x/1024)*(W-40), y=22+(s.y/256)*(H-44); ctx.beginPath(); ctx.arc(x,y,Math.max(1,s.r*0.55),0,Math.PI*2); ctx.fill();}
-  if(riscos){ctx.strokeStyle='rgba(239,233,221,0.85)'; ctx.lineWidth=2; [0.3,0.55,0.75].forEach(f=>{ctx.beginPath(); ctx.moveTo(20,22+f*(H-44)); ctx.lineTo(W-20,22+f*(H-44)); ctx.stroke();});}
+  if(!prevBase)buildPrevBase();
+  if(Math.abs(level-prevPainted)<1.0 && inkSel===prevInkP && veu===prevVeu && riscos===prevRis)return;
+  prevPainted=level; prevInkP=inkSel; prevVeu=veu; prevRis=riscos;
+  const W=300,H=140, src=prevBase.data, out=cPrevCtx.createImageData(W,H), d=out.data;
+  const t=level/100, th=t*0.8, dens=1-0.45*t;
+  for(let i=0;i<src.length;i+=4){
+    let r=src[i]/255,g=src[i+1]/255,b=src[i+2]/255;
+    let K=(1-Math.max(r,g,b))*0.9, iK=1-K;                     // separação RGB -> CMYK
+    let cmyk=[iK>0?(1-r-K)/iK:0, iK>0?(1-g-K)/iK:0, iK>0?(1-b-K)/iK:0, K];
+    let v=cmyk[inkSel];
+    cmyk[inkSel] = v<th ? 0 : v*dens;                          // alvéolos pequenos (altas-luzes) entopem primeiro; depois perde densidade
+    const k2=cmyk[3], ik=1-k2;
+    d[i]=(1-cmyk[0])*ik*255; d[i+1]=(1-cmyk[1])*ik*255; d[i+2]=(1-cmyk[2])*ik*255; d[i+3]=255;
+  }
+  cPrevCtx.putImageData(out,0,0);
+  if(veu){const c=INKS[inkSel]; cPrevCtx.fillStyle=c.css.replace('0.9','0.12').replace('0.92','0.12'); cPrevCtx.fillRect(0,0,W,H);}   // véu: fundo tingido da cor do tinteiro
+  if(riscos){cPrevCtx.strokeStyle='rgba(255,255,255,0.55)'; cPrevCtx.lineWidth=2; [0.28,0.55,0.78].forEach(f=>{cPrevCtx.beginPath(); cPrevCtx.moveTo(0,f*H); cPrevCtx.lineTo(W,f*H); cPrevCtx.stroke();});}
 }
 function clogTick(dt){
   const rpm=+cEl.cSpeed.value, sp=rpm/300;
-  const visc=+cEl.cVisc.value, solv=+cEl.cSolv.value, dirt=+cEl.cDirt.value, blade=+cEl.cBlade.value;
+  const visc=+cEl.cVisc.value, ret=+cEl.cRet.value, dirt=+cEl.cDirt.value, blade=+cEl.cBlade.value;
   cEl.cSpVal.textContent=rpm;
-  const rpmRad=(rpm/60)*Math.PI*2; angle+=rpmRad*dt; rotor.rotation.x=angle;
-  if(pressorSpin)pressorSpin.rotation.x=-angle*(cylR()/pressorR);
-  // secagem nas células: pior com solvente rápido/viscosidade alta, e a BAIXA velocidade (mais tempo p/ secar antes de transferir)
+  // sentido correto: a superfície sobe do tinteiro, passa na lâmina e segue para o ponto de impressão (pressor)
+  const rpmRad=(rpm/60)*Math.PI*2; angle+=rpmRad*dt; rotor.rotation.x=-angle;
+  if(pressorSpin)pressorSpin.rotation.x=angle*(cylR()/pressorR);
+  const drying=dryingRate();
+  // a secagem dá-se na janela lâmina -> ponto de impressão: a baixa velocidade os alvéolos vão abertos mais tempo
   if(sp>0.02){
-    const secagem=(solv*0.85+visc*0.5)/100;
-    const rate=secagem*(1.25-sp)*2.0 + (dirt/100)*1.4;
+    const rate=drying*(1.3-sp)*2.2 + (dirt/100)*1.2;
     CG.clog=Math.min(100,CG.clog+rate*dt);
   }
+  if(dryArcMat){dryArcMat.opacity=Math.min(0.85, drying*(sp>0.02?(1.3-sp):0.35)*0.8);}
   const veu=blade<28, riscos=blade>72;
   cEl.cBladeNote.textContent=veu?'Pressão a menos: a lâmina não rapa — véu de tinta em todo o fundo.':(riscos?'Pressão a mais: desgasta lâmina e crómio — riscos contínuos na impressão.':'Pressão correta: rapa o excesso e deixa a tinta só nos alvéolos.');
   paintClog(CG.clog);
   drawClogPreview(CG.clog,veu,riscos);
-  cEl.cClogVal.textContent=Math.round(CG.clog)+'%'; cEl.cClogVal.className='val'+(CG.clog>=50?' bad':CG.clog>=20?' warn':'');
+  cEl.cClogVal.textContent=Math.round(CG.clog)+'% '+INKS[inkSel].n; cEl.cClogVal.className='val'+(CG.clog>=50?' bad':CG.clog>=20?' warn':'');
   cEl.cClogBar.style.width=CG.clog+'%'; cEl.cClogBar.style.background=CG.clog>50?'#ff5252':CG.clog>20?'#ffb13f':'#46d39a';
-  const scrap=Math.min(100,Math.round(CG.clog*0.8+(veu?15:0)+(riscos?20:0)));
+  const retExcess=Math.max(0,ret-65);   // retardador a mais: a tinta não seca no filme (bloqueio/odor)
+  const scrap=Math.min(100,Math.round(CG.clog*0.8+(veu?15:0)+(riscos?20:0)+retExcess*0.7));
   cEl.cScrap.textContent=scrap+' %'; cEl.cScrap.style.color=scrap>30?'#ff5252':scrap>10?'#ffb13f':'#cdd8e4';
-  const qGrave=CG.clog>45||scrap>50, qDef=CG.clog>15||veu||riscos;
+  const qGrave=CG.clog>45||scrap>50, qDef=CG.clog>15||veu||riscos||retExcess>0;
   cEl.cQual.textContent=qGrave?'grave':(qDef?'com defeitos':'perfeita');
   cEl.cQual.style.color=qGrave?'#ff5252':(qDef?'#ffb13f':'#46d39a');
   let v;
-  if(rpm===0&&CG.clog===0){v='Dá rotação e vê como a tinta seca nos alvéolos.';}
+  if(rpm===0&&CG.clog===0){v='Dá rotação e vê como o acetato de etilo evapora nos alvéolos entre a lâmina e o ponto de impressão (zona laranja no cilindro).';}
   else{
     const causes=[];
-    if(solv>50)causes.push('solvente rápido');
-    if(visc>50)causes.push('viscosidade alta');
+    if(ret<15&&drying>0.5)causes.push('acetato a evaporar sem retardador');
+    if(visc>50)causes.push('viscosidade alta (falta solvente)');
     if(dirt>40)causes.push('tinta suja / sem filtragem');
+    if(sp>0.02&&sp<0.35)causes.push('velocidade baixa (alvéolos abertos mais tempo)');
     if(CG.stops>0)causes.push(CG.stops+'× paragem c/ tinta a secar');
+    if(retExcess>0)causes.push('retardador em excesso — não seca no filme');
     v=causes.length?'Causas ativas: <b>'+causes.join(' · ')+'</b>.':'Tinta controlada — os alvéolos mantêm-se abertos.';
     if(CG.clog>45)v+=' <br><b style="color:#ff5252">Impressão comprometida</b> — parar e lavar o cilindro.';
-    else if(CG.clog>2)v+=' <br>“Lavar cilindro” recupera — a limpeza regular evita chegar aqui.';
+    else if(CG.clog>2)v+=' <br>As <b>altas-luzes do '+INKS[inkSel].n+'</b> são as primeiras a falhar — alvéolos pequenos secam primeiro.';
   }
   cEl.cVerdict.innerHTML=v;
   let st,col;
   if(rpm===0){st='— parado —';col='var(--ink-dim)';}
   else if(CG.clog>45){st='alvéolos entupidos — falhas graves';col='var(--bad)';}
-  else if(CG.clog>15){st='células a entupir';col='var(--warn)';}
+  else if(CG.clog>15){st='células a entupir — altas-luzes a falhar';col='var(--warn)';}
   else{st='a imprimir — células abertas';col='var(--ok)';}
   E.status.textContent=st; E.status.style.color=col; E.status.style.borderColor='var(--line)';
   cEl.cSpState.textContent=rpm===0?'parado':'a imprimir';
