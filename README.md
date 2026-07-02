@@ -25,6 +25,20 @@ por isso é preciso ligação à internet na primeira vez.
 > **Atalho online:** podes também publicar o repositório com GitHub Pages e
 > abrir o `index.html` diretamente pelo browser.
 
+## Fases
+
+A app abre num menu com três fases:
+
+1. **Montagem do cilindro** — como se monta o cilindro no veio, passo a passo
+   (com escolha do perímetro e do desgaste do escatel/ranhura).
+2. **Simulador · Efeito Junker** — em máquina: defeitos, vibração, desaperto
+   das anilhas e impacto na produção.
+3. **Entupimento dos cilindros** — a máquina com **tinteiro**, **raclete
+   (lâmina)** e **pressor**: porque é que os alvéolos entopem (solvente
+   rápido, viscosidade alta, tinta suja, paragens com tinta a secar) e o que
+   a pressão errada da lâmina provoca (véu / riscos). A prova de impressão
+   mostra as falhas e a lavagem do cilindro recupera as células.
+
 ## O que se pode fazer
 
 A cena mostra o conjunto real — veio, rodas que assentam na meia-cana, motor do
