@@ -34,10 +34,16 @@ A app abre num menu com três fases:
 2. **Simulador · Efeito Junker** — em máquina: defeitos, vibração, desaperto
    das anilhas e impacto na produção.
 3. **Entupimento dos cilindros** — a máquina com **tinteiro**, **raclete
-   (lâmina)** e **pressor**: porque é que os alvéolos entopem (solvente
-   rápido, viscosidade alta, tinta suja, paragens com tinta a secar) e o que
-   a pressão errada da lâmina provoca (véu / riscos). A prova de impressão
-   mostra as falhas e a lavagem do cilindro recupera as células.
+   (lâmina)** e **pressor**, com tinta base solvente de **acetato de etilo**
+   (evapora muito depressa). A secagem dá-se na janela entre a lâmina e o
+   ponto de impressão (zona assinalada a laranja no cilindro): a baixa
+   velocidade e nas paragens os alvéolos vão abertos mais tempo e a tinta
+   seca lá dentro — os **alvéolos pequenos (altas-luzes) falham primeiro**.
+   Escolhe-se a **cor no tinteiro (C/M/Y/K)** e vê-se o efeito dessa cor num
+   trabalho em **cromia**; o **retardador** (solvente lento) trava a secagem
+   (em excesso não seca no filme), a **viscosidade** controla-se com solvente
+   e a **filtragem** evita acumulação. A pressão errada da lâmina provoca
+   véu / riscos, e a lavagem do cilindro recupera as células.
 
 ## O que se pode fazer
 
