@@ -88,6 +88,9 @@
   #panel::-webkit-scrollbar{width:8px}
   #panel::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px}
   #clogPanel{width:340px; border-left:1px solid var(--line); background:var(--panel); overflow-y:auto; display:none;}
+  .pmRow{display:flex; gap:6px; margin-bottom:8px}
+  .pmRow button{flex:1; font-family:var(--mono); font-size:10px; letter-spacing:.03em; padding:7px 4px; border:1px solid var(--line); background:#1b232d; color:var(--ink-dim); border-radius:3px; cursor:pointer; touch-action:manipulation;}
+  .pmRow button.on{border-color:var(--accent); color:var(--accent)}
   .inkRow{display:flex; gap:6px; margin-bottom:6px}
   .inkBtn{flex:1; padding:9px 4px; border:2px solid var(--line); border-radius:4px; cursor:pointer; font-family:var(--mono); font-size:10px; letter-spacing:.03em; color:#fff; opacity:.5; touch-action:manipulation;}
   .inkBtn.on{opacity:1; border-color:#fff}
@@ -370,6 +373,7 @@
         Veio Ø<b>65</b> (perím. <b>204 mm</b>) · comp. <b>1920 mm</b><br>
         Roda: abas Ø<b>155</b> · calha Ø<b>145</b> · larg. <b>70</b><br>
         Cilindro larg. <b>850</b> · desenv. <b>420 mm</b> → Ø<b>134</b> (variável)<br>
+        Pressor larg. <b>850</b> · perím. <b>500</b> · banda útil <b>800</b> c/ perím. <b>510</b><br>
         Bucha OD ≈ Ø<b>88</b> (encaixa no menor cilindro)<br>
         Lado dentro: peça fixa c/ escatel → bucha → cilindro<br>
         Lado fora: rosca → bucha → anilha → anilha
@@ -416,8 +420,15 @@
     </div>
     <div class="sec">
       <h2>Prova de impressão</h2>
+      <div class="pmRow">
+        <button class="on" data-pm="solo">Só a cor (estação)</button>
+        <button data-pm="all">Cromia (4 cores)</button>
+      </div>
+      <div class="desc" style="margin:0 0 3px;color:var(--ok)">Original (como deve ser):</div>
+      <canvas id="cPrevOrig" width="300" height="140" style="width:100%;border-radius:3px;background:#efe9dd;display:block"></canvas>
+      <div class="desc" style="margin:7px 0 3px;color:var(--warn)">Como está a sair:</div>
       <canvas id="cPreview" width="300" height="140" style="width:100%;border-radius:3px;background:#efe9dd;display:block"></canvas>
-      <div class="desc" id="cPrevNote" style="margin-top:6px">Trabalho em cromia (CMYK). A cor selecionada no tinteiro perde primeiro as <b>altas-luzes</b> (alvéolos pequenos secam primeiro, logo a seguir à lâmina) e depois a densidade nos cheios.</div>
+      <div class="desc" id="cPrevNote" style="margin-top:6px">Em "Só a cor" vês o canal desta estação; em "Cromia" o trabalho completo. A cor perde primeiro as <b>altas-luzes</b> (alvéolos pequenos secam primeiro, logo a seguir à lâmina) e depois a densidade nos cheios.</div>
     </div>
     <div class="sec">
       <h2>Tinta · acetato de etilo</h2>
@@ -742,17 +753,37 @@ function buildInkUnit(){
   const dryGrp=new THREE.Group(); dryGrp.rotation.x=-a; inkUnit.add(dryGrp);
   const dryArc=new THREE.Mesh(new THREE.TorusGeometry(R+0.03,0.02,8,40,Math.PI/2-a), dryArcMat);
   dryArc.rotation.y=-Math.PI/2; dryGrp.add(dryArc);
-  // pressor: rolo de borracha em cima, encostado ao cilindro
-  pressorR=Math.max(0.35,R*0.5);
-  pressorSpin=new THREE.Group(); pressorSpin.position.y=R+pressorR-0.02; inkUnit.add(pressorSpin);
-  const pr=new THREE.Mesh(new THREE.CylinderGeometry(pressorR,pressorR,cylW*0.95,36), matRubber); pr.rotation.z=Math.PI/2; pressorSpin.add(pr);
-  [-1,1].forEach(s=>{const cap=new THREE.Mesh(new THREE.CylinderGeometry(pressorR*0.4,pressorR*0.4,0.5,20), matShaftDk); cap.rotation.z=Math.PI/2; cap.position.x=s*(cylW*0.95/2+0.24); pressorSpin.add(cap);});
+  // pressor real: largura total 850 (como o cilindro), corpo c/ perímetro 500; banda ÚTIL central de 800 mm mais cheia (~perím. 510)
+  const prBaseR=(500/Math.PI)*MM/2, prBandR=(510/Math.PI)*MM/2;
+  pressorR=prBandR;
+  pressorSpin=new THREE.Group(); pressorSpin.position.y=R+prBandR-0.02; inkUnit.add(pressorSpin);
+  const prCore=new THREE.Mesh(new THREE.CylinderGeometry(prBaseR,prBaseR,cylW,36), matRubber); prCore.rotation.z=Math.PI/2; pressorSpin.add(prCore);
+  const prBand=new THREE.Mesh(new THREE.CylinderGeometry(prBandR,prBandR,800*MM,36), new THREE.MeshStandardMaterial({color:0x3a404c,metalness:.15,roughness:.8})); prBand.rotation.z=Math.PI/2; pressorSpin.add(prBand);
+  [-1,1].forEach(s=>{const cap=new THREE.Mesh(new THREE.CylinderGeometry(prBaseR*0.4,prBaseR*0.4,0.5,20), matShaftDk); cap.rotation.z=Math.PI/2; cap.position.x=s*(cylW/2+0.24); pressorSpin.add(cap);});
+  // filme plástico: entra por trás de cima, passa no ponto de impressão e sai à frente para cima já impresso (só a cor desta estação)
+  const filmW=800*MM, nipY=R+0.03;
+  const matFilm=new THREE.MeshStandardMaterial({color:0xf6f4ec,transparent:true,opacity:0.55,side:THREE.DoubleSide,roughness:.55});
+  function strip(zA,yA,zB,yB,mat){
+    const len=Math.hypot(yB-yA,zB-zA);
+    const p=new THREE.Mesh(new THREE.PlaneGeometry(filmW,len), mat);
+    p.position.set(0,(yA+yB)/2,(zA+zB)/2);
+    p.rotation.x=Math.atan2(zB-zA,yB-yA);
+    inkUnit.add(p); return p;
+  }
+  strip(-3.4, nipY+4.8, -0.4, nipY, matFilm);                                       // entrada (por trás, de cima)
+  strip(-0.4, nipY, 0.4, nipY, matFilm);                                            // ponte no nip
+  filmOut=strip(0.4, nipY, 3.4, nipY+4.8, new THREE.MeshBasicMaterial({map:filmTex,side:THREE.DoubleSide}));   // saída impressa
 }
 
 // ---- entupimento: textura de alvéolos secos sobre a banda gravada
 const clogCv=document.createElement('canvas'); clogCv.width=1024; clogCv.height=256;
 const clogCtx=clogCv.getContext('2d');
 const clogTex=new THREE.CanvasTexture(clogCv); clogTex.wrapS=THREE.RepeatWrapping; clogTex.wrapT=THREE.RepeatWrapping;
+// filme impresso em máquina (só a cor da estação)
+const filmCv=document.createElement('canvas'); filmCv.width=300; filmCv.height=140;
+const filmCtx=filmCv.getContext('2d');
+const filmTex=new THREE.CanvasTexture(filmCv); filmTex.wrapS=THREE.RepeatWrapping; filmTex.wrapT=THREE.RepeatWrapping; filmTex.repeat.set(1,1.5);
+let filmOut=null;
 const clogSpots=[]; {let seed=7; const rnd=()=>{seed=(seed*16807)%2147483647; return seed/2147483647;};
 for(let i=0;i<520;i++)clogSpots.push({x:rnd()*1024, y:rnd()*256, r:2+rnd()*5});}
 let clogPainted=-1;
@@ -1210,6 +1241,13 @@ cEl.cOsc.addEventListener('click',()=>{CG.osc=!CG.osc; cEl.cOscTag.textContent=C
 cEl.cClean.addEventListener('click',()=>{CG.clog=CG.clog*0.08; if(CG.clog<2)CG.clog=0; CG.stops=0;});
 // ---- prova de impressão em cromia (CMYK): a cor selecionada no tinteiro perde primeiro as ALTAS-LUZES (alvéolos pequenos)
 let prevBase=null, prevPainted=-1, prevInkP=-1, prevVeu=null, prevRis=null, prevThin=-1;
+let prevMode='solo', prevModeP=null, origMode=null, origInk=-1;
+const cPrevOrigCtx=document.getElementById('cPrevOrig').getContext('2d');
+document.querySelectorAll('.pmRow button').forEach(b=>b.addEventListener('click',()=>{
+  prevMode=b.dataset.pm;
+  document.querySelectorAll('.pmRow button').forEach(x=>x.classList.toggle('on',x===b));
+  prevPainted=-1;
+}));
 function buildPrevBase(){
   const W=300,H=140, oc=document.createElement('canvas'); oc.width=W; oc.height=H; const c=oc.getContext('2d');
   const g=c.createLinearGradient(0,0,0,H); g.addColorStop(0,'#5aa8d8'); g.addColorStop(0.55,'#cfe6f3'); g.addColorStop(1,'#f2efe6');
@@ -1225,25 +1263,40 @@ function buildPrevBase(){
   c.fillStyle='rgba(255,255,255,0.85)'; c.font='italic 9px Georgia, serif'; c.fillText('embalagem flexível · cromia CMYK', W/2, 133);
   prevBase=c.getImageData(0,0,W,H);
 }
-function drawClogPreview(level,veu,riscos,thinF){
-  thinF=thinF||0;
+// render do trabalho: separação RGB->CMYK por pixel; "solo" mostra só o canal desta estação impresso na cor da tinta
+function renderArt(ctx,solo,level,thinF){
   if(!prevBase)buildPrevBase();
-  if(Math.abs(level-prevPainted)<1.0 && inkSel===prevInkP && veu===prevVeu && riscos===prevRis && Math.abs(thinF-prevThin)<0.05)return;
-  prevPainted=level; prevInkP=inkSel; prevVeu=veu; prevRis=riscos; prevThin=thinF;
-  const W=300,H=140, src=prevBase.data, out=cPrevCtx.createImageData(W,H), d=out.data;
-  const t=level/100, th=t*0.8, dens=(1-0.45*t)*(1-0.3*thinF);   // tinta diluída: menos densidade de cor
+  const W=300,H=140, src=prevBase.data, out=ctx.createImageData(W,H), d=out.data;
+  const t=(level||0)/100, th=t*0.8, dens=(1-0.45*t)*(1-0.3*(thinF||0));
+  const tin=INKS[inkSel].tin, ir=(tin>>16&255)/255, ig=(tin>>8&255)/255, ib=(tin&255)/255;
   for(let i=0;i<src.length;i+=4){
     let r=src[i]/255,g=src[i+1]/255,b=src[i+2]/255;
-    let K=(1-Math.max(r,g,b))*0.9, iK=1-K;                     // separação RGB -> CMYK
+    let K=(1-Math.max(r,g,b))*0.9, iK=1-K;
     let cmyk=[iK>0?(1-r-K)/iK:0, iK>0?(1-g-K)/iK:0, iK>0?(1-b-K)/iK:0, K];
-    let v=cmyk[inkSel];
-    cmyk[inkSel] = v<th ? 0 : v*dens;                          // alvéolos pequenos (altas-luzes) entopem primeiro; depois perde densidade
-    const k2=cmyk[3], ik=1-k2;
-    d[i]=(1-cmyk[0])*ik*255; d[i+1]=(1-cmyk[1])*ik*255; d[i+2]=(1-cmyk[2])*ik*255; d[i+3]=255;
+    let v=cmyk[inkSel]; v = v<th ? 0 : v*dens;    // altas-luzes (alvéolos pequenos) entopem primeiro; depois perde densidade
+    if(solo){
+      d[i]=(1-v*(1-ir))*255; d[i+1]=(1-v*(1-ig))*255; d[i+2]=(1-v*(1-ib))*255;
+    } else {
+      cmyk[inkSel]=v;
+      const k2=cmyk[3], ik=1-k2;
+      d[i]=(1-cmyk[0])*ik*255; d[i+1]=(1-cmyk[1])*ik*255; d[i+2]=(1-cmyk[2])*ik*255;
+    }
+    d[i+3]=255;
   }
-  cPrevCtx.putImageData(out,0,0);
-  if(veu){const c=INKS[inkSel]; cPrevCtx.fillStyle=c.css.replace('0.9','0.12').replace('0.92','0.12'); cPrevCtx.fillRect(0,0,W,H);}   // véu: fundo tingido da cor do tinteiro
-  if(riscos){cPrevCtx.strokeStyle='rgba(255,255,255,0.55)'; cPrevCtx.lineWidth=2; [0.28,0.55,0.78].forEach(f=>{cPrevCtx.beginPath(); cPrevCtx.moveTo(0,f*H); cPrevCtx.lineTo(W,f*H); cPrevCtx.stroke();});}
+  ctx.putImageData(out,0,0);
+}
+function overlayDefects(ctx,veu,riscos){
+  if(veu){const c=INKS[inkSel]; ctx.fillStyle=c.css.replace('0.9','0.12').replace('0.92','0.12'); ctx.fillRect(0,0,300,140);}
+  if(riscos){ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.lineWidth=2; [0.28,0.55,0.78].forEach(f=>{ctx.beginPath(); ctx.moveTo(0,f*140); ctx.lineTo(300,f*140); ctx.stroke();});}
+}
+function drawClogPreview(level,veu,riscos,thinF){
+  thinF=thinF||0;
+  const solo=(prevMode==='solo');
+  if(origMode!==prevMode||origInk!==inkSel){renderArt(cPrevOrigCtx,solo,0,0); origMode=prevMode; origInk=inkSel;}   // original (referência)
+  if(Math.abs(level-prevPainted)<1.0 && inkSel===prevInkP && veu===prevVeu && riscos===prevRis && Math.abs(thinF-prevThin)<0.05 && prevModeP===prevMode)return;
+  prevPainted=level; prevInkP=inkSel; prevVeu=veu; prevRis=riscos; prevThin=thinF; prevModeP=prevMode;
+  renderArt(cPrevCtx,solo,level,thinF); overlayDefects(cPrevCtx,veu,riscos);            // como está a sair
+  renderArt(filmCtx,true,level,thinF); overlayDefects(filmCtx,veu,riscos); filmTex.needsUpdate=true;   // filme em máquina (sempre só a cor)
 }
 function clogTick(dt){
   const rpm=+cEl.cSpeed.value, sp=rpm/300;
@@ -1252,6 +1305,7 @@ function clogTick(dt){
   // sentido correto: a superfície sobe do tinteiro, passa na lâmina e segue para o ponto de impressão (pressor)
   const rpmRad=(rpm/60)*Math.PI*2; angle+=rpmRad*dt; rotor.rotation.x=-angle;
   if(pressorSpin)pressorSpin.rotation.x=angle*(cylR()/pressorR);
+  filmTex.offset.y-=sp*dt*0.9;   // filme a correr: entra por trás, sai à frente já impresso
   // pressão a mais achata o ângulo de contacto (a lâmina deita-se) — alívio temporário do véu que volta pior
   const effAng=ang-Math.max(0,blade-2.5)*6;
   if(bladeGrp){
