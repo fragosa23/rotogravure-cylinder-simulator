@@ -440,6 +440,15 @@
       <h2>Tinta · acetato de etilo</h2>
       <div class="desc" style="margin-bottom:12px">Tinta de rotogravura para embalagem flexível, tipo <b>Flint Group / Sun Chemical</b> (linhas p/ solvente acetato): ligante <b>nitrocelulose / NC-PU</b>, pigmento e aditivos, solvente principal <b>acetato de etilo</b> — evapora muito depressa; se nada o travar, seca dentro dos alvéolos entre a lâmina e o ponto de impressão. Afinação em máquina (típico das fichas técnicas): diluição com acetato + <b>retardador (solvente lento) ~5–12%</b>, máx ~15%.</div>
       <div class="ctrl">
+        <div class="lbl"><span class="name">Tipo de tinta</span><span class="tag" id="inkTypeTag">Cromia · NC-PU</span></div>
+        <div class="pmRow" id="inkTypeRow">
+          <button class="on" data-it="0">Cromia (CMYK)</button>
+          <button data-it="1">Cor direta (Pantone)</button>
+        </div>
+        <div class="btnrow"><button class="act" id="btnTDS">ℹ Ficha técnica / formulação</button></div>
+        <div id="tdsBox" style="display:none; font-size:10px; line-height:1.6; color:var(--ink); background:#10151c; border:1px solid var(--line); border-radius:4px; padding:9px; margin-top:6px"></div>
+      </div>
+      <div class="ctrl">
         <div class="lbl"><span class="name">Cor no tinteiro (estação)</span></div>
         <div class="inkRow">
           <button class="inkBtn on" data-ink="0" style="background:#0e8cc3">Cyan</button>
@@ -1228,6 +1237,22 @@ const INKS=[
   {n:'Preto',   css:'rgba(18,18,18,0.92)',  tin:0x1c1c1c}
 ];
 let inkSel=0;
+// tipos de tinta (formulação conforme fichas técnicas típicas Flint Group / Sun Chemical p/ solvente acetato)
+const INKTYPES=[
+  {tag:'Cromia · NC-PU', viscStd:13,
+   tds:'<b>Tinta de processo (cromia) · rotogravura, embalagem flexível</b> — tipo Flint Group / Sun Chemical, séries p/ acetato.<br>'+
+       '<b>Formulação:</b> ligante <b>nitrocelulose + poliuretano (NC-PU)</b> · pigmentos orgânicos CMYK · aditivos (ceras, dispersantes).<br>'+
+       '<b>Solvente:</b> acetato de etilo. Fornecida a ~25 s; <b>diluição em máquina até 12–14 s (alvo 13 s)</b>.<br>'+
+       '<b>Retardador:</b> 5–12% conforme velocidade e ar da sala · máx ~15%.<br>'+
+       '<b>Substratos:</b> BOPP / PET / PE tratados. Boa impressão: viscosidade estável (±0,5 s), tinta filtrada, retardador ajustado.'},
+  {tag:'Cor direta · NC', viscStd:15.5,
+   tds:'<b>Cor direta (Pantone) · rotogravura, embalagem flexível</b> — tipo Flint Group / Sun Chemical, séries p/ acetato.<br>'+
+       '<b>Formulação:</b> ligante <b>nitrocelulose (NC)</b> (ou NC-PU p/ laminagem) · pigmento único conforme a cor · aditivos.<br>'+
+       '<b>Solvente:</b> acetato de etilo. Fornecida a ~30 s; <b>impressão a 15–16 s</b> — mais carga de pigmento que a cromia, trabalha mais grossa.<br>'+
+       '<b>Retardador:</b> 5–12% · máx ~15%.<br>'+
+       '<b>Substratos:</b> BOPP / PET / PE tratados. Cheios grandes: atenção ao véu e à espuma no tinteiro.'}
+];
+let inkType=0;
 const cEl={}; ['cSpeed','cSpVal','cSpState','cVisc','vCVisc','cRet','vCRet','cDirt','vCDirt','cAng','vCAng','cBlade','vCBlade','cBladeH','vCBladeH','cBladeNote','cOsc','cOscTag','cStop','cClean','cClogVal','cClogBar','cQual','cScrap','cVerdict','cPreview'].forEach(id=>cEl[id]=document.getElementById(id));
 const cPrevCtx=cEl.cPreview.getContext('2d');
 function updateClogLabels(){cEl.vCVisc.textContent=(+cEl.cVisc.value).toFixed(1)+' s';cEl.vCRet.textContent=cEl.cRet.value+'%';cEl.vCDirt.textContent=cEl.cDirt.value+'%';cEl.vCBlade.textContent=(+cEl.cBlade.value).toFixed(1)+' bar';cEl.vCAng.textContent=cEl.cAng.value+'°';cEl.vCBladeH.textContent=cEl.cBladeH.value+'%';}
@@ -1242,11 +1267,24 @@ document.querySelectorAll('.inkBtn').forEach(b=>b.addEventListener('click',()=>{
   matInk.color.setHex(INKS[inkSel].tin);
   clogPainted=-1; prevPainted=-1;   // repintar cilindro e prova na nova cor
 }));
+// tipo de tinta: muda o standard de viscosidade (cromia 13 s · direta 15,5 s) e a ficha técnica
+function updateTDS(){document.getElementById('tdsBox').innerHTML=INKTYPES[inkType].tds;}
+document.querySelectorAll('#inkTypeRow button').forEach(b=>b.addEventListener('click',()=>{
+  inkType=+b.dataset.it;
+  document.querySelectorAll('#inkTypeRow button').forEach(x=>x.classList.toggle('on',x===b));
+  document.getElementById('inkTypeTag').textContent=INKTYPES[inkType].tag;
+  cEl.cVisc.value=INKTYPES[inkType].viscStd;   // repõe a viscosidade no alvo do tipo
+  updateClogLabels(); updateTDS(); prevPainted=-1;
+}));
+document.getElementById('btnTDS').addEventListener('click',()=>{
+  const b=document.getElementById('tdsBox');
+  const show=b.style.display==='none'; b.style.display=show?'block':'none'; if(show)updateTDS();
+});
 // risco de secagem do acetato: ~0 com a tinta afinada (retardador ~9%, viscosidade ~13 s p/ cromia)
 function dryingRate(){
   const visc=+cEl.cVisc.value, ret=+cEl.cRet.value;
-  const retLack=Math.max(0,9-ret)/9;                 // falta de retardador face ao standard (~9%)
-  const viscF=Math.max(0,visc-13)/9;                 // segundos acima do standard de cromia (13 s)
+  const retLack=Math.max(0,9-ret)/9;                                 // falta de retardador face ao standard (~9%)
+  const viscF=Math.max(0,visc-INKTYPES[inkType].viscStd)/9;          // segundos acima do standard do tipo de tinta (cromia 13 s · direta 15,5 s)
   return (0.12+0.88*retLack)*(0.5+0.5*viscF);        // afinado -> residual; sem retardador -> até 1
 }
 cEl.cStop.addEventListener('click',()=>{CG.clog=Math.min(100,CG.clog+5+dryingRate()*28); CG.stops++;});
@@ -1354,7 +1392,7 @@ function clogTick(dt){
   cEl.cClogVal.textContent=Math.round(CG.clog)+'% '+INKS[inkSel].n; cEl.cClogVal.className='val'+(CG.clog>=50?' bad':CG.clog>=20?' warn':'');
   cEl.cClogBar.style.width=CG.clog+'%'; cEl.cClogBar.style.background=CG.clog>50?'#ff5252':CG.clog>20?'#ffb13f':'#46d39a';
   const retExcess=Math.max(0,ret-15);   // retardador acima de ~15%: a tinta não seca no filme (bloqueio/odor)
-  const thin=Math.max(0,12-visc);       // tinta demasiado diluída: perde densidade de cor
+  const thin=Math.max(0,(INKTYPES[inkType].viscStd-1)-visc);   // demasiado diluída p/ o tipo de tinta: perde densidade de cor
   const scrap=Math.min(100,Math.round(CG.clog*0.8+(veu?15:0)+(riscos?20:0)+retExcess*0.7+thin*8));
   cEl.cScrap.textContent=scrap+' %'; cEl.cScrap.style.color=scrap>30?'#ff5252':scrap>10?'#ffb13f':'#cdd8e4';
   const qGrave=CG.clog>45||scrap>50, qDef=CG.clog>15||veu||riscos||retExcess>0||thin>0;
@@ -1365,7 +1403,7 @@ function clogTick(dt){
   else{
     const causes=[];
     if(ret<7)causes.push('retardador abaixo do standard (~9%)');
-    if(visc>14.5)causes.push('viscosidade alta ('+visc.toFixed(1)+' s — falta solvente)');
+    if(visc>INKTYPES[inkType].viscStd+1.5)causes.push('viscosidade alta ('+visc.toFixed(1)+' s p/ '+INKTYPES[inkType].tag.split(' ·')[0]+' — falta solvente)');
     if(thin>0)causes.push('tinta demasiado diluída ('+visc.toFixed(1)+' s) — perde densidade');
     if(dirt>40)causes.push('tinta suja / sem filtragem');
     if(sp>0.02&&sp<0.55)causes.push('velocidade abaixo do standard (180–250 rpm)');
