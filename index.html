@@ -766,8 +766,9 @@ function buildInkUnit(){
   const prCore=new THREE.Mesh(new THREE.CylinderGeometry(prBaseR,prBaseR,cylW,36), matRubber); prCore.rotation.z=Math.PI/2; pressorSpin.add(prCore);
   const prBand=new THREE.Mesh(new THREE.CylinderGeometry(prBandR,prBandR,800*MM,36), new THREE.MeshStandardMaterial({color:0x3a404c,metalness:.15,roughness:.8})); prBand.rotation.z=Math.PI/2; pressorSpin.add(prBand);
   [-1,1].forEach(s=>{const cap=new THREE.Mesh(new THREE.CylinderGeometry(prBaseR*0.4,prBaseR*0.4,0.5,20), matShaftDk); cap.rotation.z=Math.PI/2; cap.position.x=s*(cylW/2+0.24); pressorSpin.add(cap);});
-  // filme plástico: entra por trás de cima, passa no ponto de impressão e sai à frente para cima já impresso (só a cor desta estação)
-  const filmW=800*MM, nipY=R+0.03;
+  // filme plástico: entra por trás de cima TANGENTE ao pressor, ABRAÇA a parte de baixo do rolo (passa no nip)
+  // e sai à frente tangente, para cima, já impresso — sem nunca atravessar o corpo do pressor
+  const filmW=800*MM;
   const matFilm=new THREE.MeshStandardMaterial({color:0xf6f4ec,transparent:true,opacity:0.55,side:THREE.DoubleSide,roughness:.55});
   function strip(zA,yA,zB,yB,mat){
     const len=Math.hypot(yB-yA,zB-zA);
@@ -776,9 +777,15 @@ function buildInkUnit(){
     p.rotation.x=Math.atan2(zB-zA,yB-yA);
     inkUnit.add(p); return p;
   }
-  strip(-3.4, nipY+4.8, -0.4, nipY, matFilm);                                       // entrada (por trás, de cima)
-  strip(-0.4, nipY, 0.4, nipY, matFilm);                                            // ponte no nip
-  filmOut=strip(0.4, nipY, 3.4, nipY+4.8, new THREE.MeshBasicMaterial({map:filmTex,side:THREE.DoubleSide}));   // saída impressa
+  const rw=prBandR+0.012, cyP=R+prBandR-0.02, beta=Math.PI/3;   // envolvimento de ±60° em volta do fundo do pressor
+  // troço curvo: casca cilíndrica à volta do pressor, do ponto tangente de trás ao da frente (passa no nip)
+  const wrap=new THREE.Mesh(new THREE.CylinderGeometry(rw,rw,filmW,48,1,true, Math.PI+(Math.PI/2-beta), 2*beta), matFilm);
+  wrap.rotation.z=Math.PI/2; wrap.position.y=cyP; inkUnit.add(wrap);
+  // tangentes: entrada por trás, saída à frente (impressa)
+  const tz=rw*Math.sin(beta), ty=cyP-rw*Math.cos(beta), dLen=5.0;
+  const dy=Math.sin(beta)*dLen, dz=Math.cos(beta)*dLen;
+  strip(-tz-dz, ty+dy, -tz, ty, matFilm);                                                       // entrada (tangente, por trás de cima)
+  filmOut=strip(tz, ty, tz+dz, ty+dy, new THREE.MeshBasicMaterial({map:filmTex,side:THREE.DoubleSide}));   // saída impressa (tangente, à frente p/ cima)
 }
 
 // ---- entupimento: textura de alvéolos secos sobre a banda gravada
