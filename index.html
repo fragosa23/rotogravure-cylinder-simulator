@@ -175,7 +175,7 @@
           <button id="regBigger" title="Ampliar">＋</button>
         </span>
       </div>
-      <canvas id="regCanvas" width="320" height="200"></canvas>
+      <canvas id="regCanvas" width="512" height="320"></canvas>
       <div class="regJobs">
         <button data-job="0" class="jobBtn on">ObaniA</button>
         <button data-job="1" class="jobBtn">Bolachas</button>
@@ -1122,7 +1122,7 @@ function rrect(x,y,w,h,r){regCtx.beginPath();regCtx.moveTo(x+r,y);regCtx.arcTo(x
 function drawRegistration(regErr, sp, vib){
   const W=regCv.width,H=regCv.height;
   regCtx.clearRect(0,0,W,H);
-  const base=Math.min(22, regErr/8);
+  const base=Math.min(32, regErr/5);
   // oscilação síncrona com a rotação do cilindro (1×/volta): segue as rpm e fica ESTÁTICA com a máquina parada.
   // amplitude oscila ± (pode inverter -> doubling); cada tinta com fase própria para não alinharem todas.
   function offv(ang,i){const amp=base*Math.sin(angle+i*0.7); return {dx:Math.cos(ang)*amp, dy:Math.sin(ang)*amp};}
@@ -1151,61 +1151,78 @@ function drawMargin(W,H,offv,inks){
     regCtx.globalAlpha=0.5; regCtx.fillRect(x+o.dx,26+o.dy,16,14); });
   regCtx.globalAlpha=1;
 }
-// JOB 1: ObaniA — pantone + fundo + branco + texto (tolerância apertada)
+// JOB 1: ObaniA — rótulo com caixa Pantone + wordmark sobreimpresso (tolerância apertada), 2 pistas
+function drawObaniaLabel(ox,w,h,offv){
+  const cx=ox+w/2;
+  const oP=offv(1.2,0);
+  regCtx.fillStyle='#d0202a'; rrect(ox+w*0.06+oP.dx, h*0.30+oP.dy, w*0.88, h*0.42, 10); regCtx.fill();   // caixa Pantone vermelha (fundo das letras)
+  regCtx.globalCompositeOperation='multiply'; regCtx.font='bold 62px Georgia, serif'; regCtx.textAlign='center'; regCtx.textBaseline='middle';
+  [['rgba(0,140,190,0.9)',0.0],['rgba(220,30,110,0.9)',2.1],['rgba(20,20,20,0.92)',1.0]].forEach(([c,a],i)=>{const o=offv(a,i); regCtx.fillStyle=c; regCtx.fillText('ObaniA', cx+o.dx, h*0.51+o.dy);});
+  regCtx.globalCompositeOperation='source-over';
+  ['#0e8cc3','#d61f7c','#e8cf00','#111'].forEach((c,i)=>{const o=offv([0,2.1,4.2,1][i],i); regCtx.fillStyle=c; regCtx.fillRect(ox+w*0.1+i*(w*0.2)+o.dx, h*0.8+o.dy, w*0.16, 12);});
+}
 function drawJobObania(W,H,offv){
   regCtx.fillStyle='#efe9dd'; regCtx.fillRect(0,0,W,H);
+  const gap=8, lw=(W-gap*3)/2;
+  [gap, gap*2+lw].forEach(ox=>drawObaniaLabel(ox,lw,H,offv));
   const inks=[{solid:'rgba(0,140,190,0.85)',a:0.0},{solid:'rgba(220,30,110,0.85)',a:2.1},{solid:'rgba(20,20,20,0.9)',a:1.0},{solid:'rgba(255,255,255,0.95)',a:3.1,w:true}];
   drawMargin(W,H,offv,inks);
-  regCtx.globalCompositeOperation='multiply'; regCtx.font='bold 40px Georgia, serif'; regCtx.textAlign='center'; regCtx.textBaseline='middle';
-  [inks[0],inks[1],inks[2]].forEach((ink,i)=>{const o=offv(ink.a,i); regCtx.fillStyle=ink.solid; regCtx.fillText('ObaniA', W/2+o.dx, H*0.66+o.dy);});
-  regCtx.globalCompositeOperation='source-over';
 }
-// JOB 2: Bolachas — embalagem real: fundo Pantone vermelho, moldura dourada, bolacha (CMYK) com pepitas e furos, rótulo creme com o nome (tolerância média)
-function drawJobBolachas(W,H,offv){
-  // substrato branco
-  regCtx.fillStyle='#f4f1e8'; regCtx.fillRect(0,0,W,H);
-  // fundo vermelho da embalagem (plate vermelho próprio)
-  const oR=offv(1.2,0);
-  regCtx.fillStyle='#c4202a'; regCtx.fillRect(6+oR.dx,6+oR.dy,W-12,H-12);
-  // moldura dourada
-  regCtx.strokeStyle='rgba(240,205,110,0.95)'; regCtx.lineWidth=3; regCtx.strokeRect(15+oR.dx,15+oR.dy,W-30,H-30);
-  // bolacha em processo (cada plate com offset -> ghosting no desregisto)
-  const cx=W*0.5, cy=H*0.42, R=36;
-  const oY=offv(4.2,1), oM=offv(2.1,2), oK=offv(1.0,4);
+// JOB 2: Bolachas — embalagem realista: marca, foto, tabela nutricional, publicidade, peso, código de barras — 2 pistas
+function drawBolachaPack(ox,w,h,offv){
+  const oR=offv(1.2,0), oK=offv(1.0,4), oW=offv(3.1,0), oY=offv(4.2,1), oM=offv(2.1,2);
+  const pad=w*0.05, x=ox+pad, y=h*0.03, pw=w-pad*2, ph=h*0.94, cx=ox+w/2;
+  regCtx.fillStyle='#c4202a'; rrect(x+oR.dx,y+oR.dy,pw,ph,12); regCtx.fill();                               // fundo Pantone vermelho
+  regCtx.strokeStyle='rgba(240,205,110,0.95)'; regCtx.lineWidth=2.5; rrect(x+oR.dx+5,y+oR.dy+5,pw-10,ph-10,9); regCtx.stroke();
+  // logótipo da marca (falsa)
+  regCtx.fillStyle='#e9c96a'; rrect(x+oW.dx+pw*0.14, y+oW.dy+7, pw*0.72, 30, 15); regCtx.fill();
+  regCtx.fillStyle='#7a1418'; regCtx.textAlign='center'; regCtx.textBaseline='middle';
+  regCtx.font='bold 18px Georgia, serif'; regCtx.fillText('Crocantti', cx+oK.dx, y+18+oK.dy);
+  regCtx.font='7px Georgia, serif'; regCtx.fillText('DESDE 1962', cx+oK.dx, y+31+oK.dy);
+  // foto: pilha de bolachas (processo -> ghosting no desregisto)
+  const by=y+ph*0.34, pos=[[-16,4],[16,6],[0,-5]];
   regCtx.globalCompositeOperation='multiply';
-  regCtx.fillStyle='#e7b84e'; regCtx.beginPath(); regCtx.arc(cx+oY.dx,cy+oY.dy,R,0,Math.PI*2); regCtx.fill();            // massa dourada (Y)
-  regCtx.fillStyle='rgba(188,108,42,0.55)'; regCtx.beginPath(); regCtx.arc(cx+oM.dx,cy+oM.dy,R*0.98,0,Math.PI*2); regCtx.fill(); // tostado (M)
+  pos.forEach(([dx,dy2])=>{
+    regCtx.fillStyle='#e2b24c'; regCtx.beginPath(); regCtx.arc(cx+dx+oY.dx,by+dy2+oY.dy,22,0,Math.PI*2); regCtx.fill();
+    regCtx.fillStyle='rgba(190,110,45,0.5)'; regCtx.beginPath(); regCtx.arc(cx+dx+oM.dx,by+dy2+oM.dy,22,0,Math.PI*2); regCtx.fill();
+  });
   regCtx.globalCompositeOperation='source-over';
-  // contorno da bolacha (K)
-  regCtx.strokeStyle='rgba(60,36,18,0.85)'; regCtx.lineWidth=2.2; regCtx.beginPath(); regCtx.arc(cx+oK.dx,cy+oK.dy,R,0,Math.PI*2); regCtx.stroke();
-  // furos de cozedura ao centro (K)
-  regCtx.fillStyle='rgba(70,44,22,0.7)';
-  for(let i=0;i<5;i++){const a=i/5*Math.PI*2; regCtx.beginPath(); regCtx.arc(cx+oK.dx+Math.cos(a)*7, cy+oK.dy+Math.sin(a)*7, 1.6,0,Math.PI*2); regCtx.fill();}
-  // pepitas de chocolate (K)
   regCtx.fillStyle='#3a2412';
-  for(let i=0;i<7;i++){const a=i/7*Math.PI*2+0.35, rr=R*0.6; regCtx.beginPath(); regCtx.arc(cx+oK.dx+Math.cos(a)*rr, cy+oK.dy+Math.sin(a)*rr, 3.4,0,Math.PI*2); regCtx.fill();}
-  // rótulo creme com o nome
-  const oW=offv(3.1,0), bw=W*0.66, bh=36, bx=W/2-bw/2, by=H*0.72;
-  regCtx.fillStyle='#f6efe0'; rrect(bx+oW.dx,by+oW.dy,bw,bh,9); regCtx.fill();
-  regCtx.strokeStyle='rgba(240,205,110,0.9)'; regCtx.lineWidth=1.5; rrect(bx+oW.dx,by+oW.dy,bw,bh,9); regCtx.stroke();
-  regCtx.fillStyle='#b81f28'; regCtx.font='bold 23px Georgia, serif'; regCtx.textAlign='center'; regCtx.textBaseline='middle';
-  regCtx.fillText('Bolachas', W/2+oW.dx, by+bh*0.4+oW.dy);
-  regCtx.fillStyle='#7a5a2a'; regCtx.font='italic 10px Georgia, serif';
-  regCtx.fillText('com pepitas de chocolate', W/2+oW.dx, by+bh*0.8+oW.dy);
-  // contorno preto do nome (K) para evidenciar desregisto nas letras
-  regCtx.strokeStyle='rgba(20,15,10,0.5)'; regCtx.lineWidth=0.6; regCtx.font='bold 23px Georgia, serif';
-  regCtx.strokeText('Bolachas', W/2+oK.dx, by+bh*0.4+oK.dy);
-  // marcas de margem (CMYK + branco)
+  pos.forEach(([dx,dy2],k)=>{ for(let i=0;i<5;i++){const a=i/5*6.28+k; regCtx.beginPath(); regCtx.arc(cx+dx+oK.dx+Math.cos(a)*12,by+dy2+oK.dy+Math.sin(a)*12,2.5,0,Math.PI*2); regCtx.fill();} });
+  // nome do produto (branco knockout) + publicidade
+  regCtx.textAlign='center';
+  regCtx.fillStyle='#fbf4e6'; regCtx.font='bold 30px Georgia, serif'; regCtx.fillText('Bolachas', cx+oW.dx, y+ph*0.60+oW.dy);
+  regCtx.fillStyle='#f0d78a'; regCtx.font='italic 11px Georgia, serif'; regCtx.fillText('com pepitas de chocolate', cx+oW.dx, y+ph*0.68+oW.dy);
+  regCtx.fillStyle='#fbf4e6'; regCtx.font='bold italic 10px Georgia, serif'; regCtx.fillText('★ as mais crocantes ★', cx+oW.dx, y+ph*0.735+oW.dy);
+  // tabela nutricional
+  const tbW=pw*0.5, tbH=ph*0.21, tbx=x+8, tby=y+ph-tbH-9;
+  regCtx.fillStyle='#f3efe6'; rrect(tbx+oW.dx,tby+oW.dy,tbW,tbH,4); regCtx.fill();
+  regCtx.fillStyle='#20242c'; regCtx.textAlign='left'; regCtx.font='bold 7px monospace';
+  regCtx.fillText('INFO. NUTRICIONAL /100g', tbx+5+oK.dx, tby+9+oK.dy);
+  regCtx.font='6.5px monospace';
+  [['Energia','480 kcal'],['Lípidos','22 g'],['Açúcares','30 g'],['Sal','0,6 g']].forEach((r,i)=>{const ry=tby+19+i*8.5; regCtx.textAlign='left'; regCtx.fillText(r[0],tbx+5+oK.dx,ry+oK.dy); regCtx.textAlign='right'; regCtx.fillText(r[1],tbx+tbW-5+oK.dx,ry+oK.dy);});
+  // selo de peso
+  regCtx.fillStyle='#e9c96a'; regCtx.beginPath(); regCtx.arc(x+pw-24+oW.dx, tby+16+oW.dy, 17,0,Math.PI*2); regCtx.fill();
+  regCtx.fillStyle='#7a1418'; regCtx.font='bold 12px Georgia'; regCtx.textAlign='center'; regCtx.fillText('200g', x+pw-24+oK.dx, tby+16+oK.dy);
+  // código de barras
+  regCtx.fillStyle='#111'; let bxx=x+pw-78;
+  for(let i=0;i<28;i++){const bw=(i%3?1:2); if(i%2===0)regCtx.fillRect(bxx+oK.dx, y+ph-18+oK.dy, bw, 13); bxx+=bw+1.4;}
+  regCtx.font='5.5px monospace'; regCtx.textAlign='center'; regCtx.fillText('5 601234 567890', x+pw-50+oK.dx, y+ph-3+oK.dy);
+}
+function drawJobBolachas(W,H,offv){
+  regCtx.fillStyle='#efe9dd'; regCtx.fillRect(0,0,W,H);
+  const gap=8, lw=(W-gap*3)/2;
+  drawBolachaPack(gap,lw,H,offv); drawBolachaPack(gap*2+lw,lw,H,offv);
   const inks=[{solid:'rgba(0,150,200,0.85)',a:0.0},{solid:'rgba(225,30,90,0.85)',a:2.1},{solid:'rgba(245,225,0,0.85)',a:4.2},{solid:'rgba(20,20,20,0.9)',a:1.0},{solid:'rgba(255,255,255,0.95)',a:3.1,w:true}];
   drawMargin(W,H,offv,inks);
 }
-// JOB 3: 3 Pantones — big flat bands (tolerância larga)
+// JOB 3: 3 Pantones — bandas planas (tolerância larga) + wordmark repetido em 2 pistas
 function drawJobPantones(W,H,offv){
   regCtx.fillStyle='#efe9dd'; regCtx.fillRect(0,0,W,H);
   const cols=[{solid:'#1f7a5a',a:0.0},{solid:'#2b4b8c',a:2.1},{solid:'#c8862b',a:1.0}];
-  cols.forEach((p,i)=>{ const o=offv(p.a,i); regCtx.fillStyle=p.solid; regCtx.fillRect(o.dx, H*0.16+ (H*0.6)/3*i + o.dy, W, (H*0.6)/3+1); });
-  const oW=offv(3.1,3); regCtx.fillStyle='rgba(255,255,255,0.95)'; regCtx.font='bold 24px Georgia, serif'; regCtx.textAlign='center'; regCtx.textBaseline='middle';
-  regCtx.fillText('ObaniA', W/2+oW.dx, H*0.46+oW.dy);
+  cols.forEach((p,i)=>{ const o=offv(p.a,i); regCtx.fillStyle=p.solid; regCtx.fillRect(o.dx, H*0.14+ (H*0.62)/3*i + o.dy, W, (H*0.62)/3+1); });
+  const gap=8, lw=(W-gap*3)/2;
+  [gap+lw/2, gap*2+lw+lw/2].forEach(cx=>{const oW=offv(3.1,3); regCtx.fillStyle='rgba(255,255,255,0.95)'; regCtx.font='bold 34px Georgia, serif'; regCtx.textAlign='center'; regCtx.textBaseline='middle'; regCtx.fillText('ObaniA', cx+oW.dx, H*0.45+oW.dy);});
   const inks=[cols[0],cols[1],cols[2],{solid:'rgba(255,255,255,0.95)',a:3.1,w:true}];
   drawMargin(W,H,offv,inks);
 }
@@ -1357,7 +1374,8 @@ function clogTick(dt){
   // O cilindro sobe do tinteiro pelo lado de TRÁS (onde está a lâmina) e o topo move-se para a frente com o filme.
   const rpmRad=(rpm/60)*Math.PI*2; angle+=rpmRad*dt; rotor.rotation.x=angle;
   if(pressorSpin)pressorSpin.rotation.x=-angle*(cylR()/pressorR);
-  filmTex.offset.y-=sp*dt*0.9;   // filme a correr: acompanha a rotação, sai à frente já impresso
+  // filme sincronizado com a velocidade de superfície do cilindro (v=R·ω): a 200+ rpm a imagem mal se percebe
+  filmTex.offset.y-=cylR()*rpmRad*0.3*dt;
   // pressão a mais achata o ângulo de contacto (a lâmina deita-se) — alívio temporário do véu que volta pior
   const effAng=ang-Math.max(0,blade-2.5)*6;
   if(bladeGrp){
