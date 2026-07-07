@@ -175,7 +175,7 @@
           <button id="regBigger" title="Ampliar">＋</button>
         </span>
       </div>
-      <canvas id="regCanvas" width="320" height="200"></canvas>
+      <canvas id="regCanvas" width="512" height="320"></canvas>
       <div class="regJobs">
         <button data-job="0" class="jobBtn on">ObaniA</button>
         <button data-job="1" class="jobBtn">Bolachas</button>
@@ -456,7 +456,11 @@
           <button class="inkBtn" data-ink="2" style="background:#c9b400;color:#20222a">Amarelo</button>
           <button class="inkBtn" data-ink="3" style="background:#1c1c1c">Preto</button>
         </div>
-        <div class="desc">A cor selecionada é a que entope — vê o efeito dela na prova em cromia.</div>
+        <div class="inkRow">
+          <button class="inkBtn" data-ink="4" style="background:#d21f2b">Pantone Verm.</button>
+          <button class="inkBtn" data-ink="5" style="background:#0e5fb0">Pantone Azul</button>
+        </div>
+        <div class="desc">Cada estação imprime uma cor. A selecionada é a que está no tinteiro e a que entope — vê o efeito só nessa cor. Os 2 Pantones: caixa vermelha atrás de "ObaniA" e o "i" a azul.</div>
       </div>
       <div class="ctrl">
         <div class="lbl"><span class="name">Retardador (solvente lento)<span class="orig oper">operador</span></span><span class="val" id="vCRet">9%</span></div>
@@ -754,6 +758,10 @@ function buildInkUnit(){
   [[0,-trayD/2],[0,trayD/2]].forEach(([dx,dz])=>{const w=new THREE.Mesh(new THREE.BoxGeometry(trayW,trayH,0.08), matTray); w.position.set(dx,trayTop-trayH/2,dz); inkUnit.add(w);});
   [[-trayW/2,0],[trayW/2,0]].forEach(([dx,dz])=>{const w=new THREE.Mesh(new THREE.BoxGeometry(0.08,trayH,trayD), matTray); w.position.set(dx,trayTop-trayH/2,dz); inkUnit.add(w);});
   const ink=new THREE.Mesh(new THREE.BoxGeometry(trayW-0.12,0.04,trayD-0.12), matInk); ink.position.y=trayTop-0.12; inkUnit.add(ink);
+  // ZONA INUNDADA: à saída do tinteiro (fundo) o cilindro está TODO coberto de tinta; só depois da lâmina fica tinta apenas nos alvéolos
+  floodMat=new THREE.MeshBasicMaterial({color:INKS[inkSel].tin, side:THREE.DoubleSide});
+  const flood=new THREE.Mesh(new THREE.CylinderGeometry(R+0.01,R+0.01,ENGR_W,48,1,true, 3*Math.PI/2-1.35, 2.7), floodMat);
+  flood.rotation.z=Math.PI/2; inkUnit.add(flood);
   // raclete: lâmina + suporte no lado de TRÁS (-z) — o lado que sobe do tinteiro para o ponto de impressão
   // grupo pivotado no ponto de contacto -> o ângulo da lâmina inclina o conjunto sem sair do contacto
   const a=bladeA(), cp={y:R*Math.sin(a), z:-R*Math.cos(a)}, out={y:Math.sin(a), z:-Math.cos(a)};
@@ -804,8 +812,14 @@ const clogTex=new THREE.CanvasTexture(clogCv); clogTex.wrapS=THREE.RepeatWrappin
 // filme impresso em máquina (só a cor da estação)
 const filmCv=document.createElement('canvas'); filmCv.width=300; filmCv.height=140;
 const filmCtx=filmCv.getContext('2d');
-const filmTex=new THREE.CanvasTexture(filmCv); filmTex.wrapS=THREE.RepeatWrapping; filmTex.wrapT=THREE.RepeatWrapping; filmTex.repeat.set(1,1.5);
+const filmTex=new THREE.CanvasTexture(filmCv); filmTex.wrapS=THREE.RepeatWrapping; filmTex.wrapT=THREE.RepeatWrapping; filmTex.repeat.set(2,1.6);   // 2 pistas ao largo do filme
 let filmOut=null;
+// canvas auxiliares: separação por canal (gravação do cilindro), temporário para degradar spots
+const covCv=document.createElement('canvas'); covCv.width=300; covCv.height=140; const covCtx=covCv.getContext('2d');
+const tmpCv=document.createElement('canvas'); tmpCv.width=300; tmpCv.height=140; const tmpCtx=tmpCv.getContext('2d');
+const cylChanCv=document.createElement('canvas'); cylChanCv.width=1024; cylChanCv.height=256; const cylChanCtx=cylChanCv.getContext('2d');
+const cylChanTex=new THREE.CanvasTexture(cylChanCv); cylChanTex.wrapS=THREE.RepeatWrapping; cylChanTex.wrapT=THREE.RepeatWrapping;
+let floodMat=null;
 const clogSpots=[]; {let seed=7; const rnd=()=>{seed=(seed*16807)%2147483647; return seed/2147483647;};
 for(let i=0;i<520;i++)clogSpots.push({x:rnd()*1024, y:rnd()*256, r:2+rnd()*5});}
 let clogPainted=-1;
@@ -1122,7 +1136,7 @@ function rrect(x,y,w,h,r){regCtx.beginPath();regCtx.moveTo(x+r,y);regCtx.arcTo(x
 function drawRegistration(regErr, sp, vib){
   const W=regCv.width,H=regCv.height;
   regCtx.clearRect(0,0,W,H);
-  const base=Math.min(22, regErr/8);
+  const base=Math.min(32, regErr/5);
   // oscilação síncrona com a rotação do cilindro (1×/volta): segue as rpm e fica ESTÁTICA com a máquina parada.
   // amplitude oscila ± (pode inverter -> doubling); cada tinta com fase própria para não alinharem todas.
   function offv(ang,i){const amp=base*Math.sin(angle+i*0.7); return {dx:Math.cos(ang)*amp, dy:Math.sin(ang)*amp};}
@@ -1151,61 +1165,78 @@ function drawMargin(W,H,offv,inks){
     regCtx.globalAlpha=0.5; regCtx.fillRect(x+o.dx,26+o.dy,16,14); });
   regCtx.globalAlpha=1;
 }
-// JOB 1: ObaniA — pantone + fundo + branco + texto (tolerância apertada)
+// JOB 1: ObaniA — rótulo com caixa Pantone + wordmark sobreimpresso (tolerância apertada), 2 pistas
+function drawObaniaLabel(ox,w,h,offv){
+  const cx=ox+w/2;
+  const oP=offv(1.2,0);
+  regCtx.fillStyle='#d0202a'; rrect(ox+w*0.06+oP.dx, h*0.30+oP.dy, w*0.88, h*0.42, 10); regCtx.fill();   // caixa Pantone vermelha (fundo das letras)
+  regCtx.globalCompositeOperation='multiply'; regCtx.font='bold 62px Georgia, serif'; regCtx.textAlign='center'; regCtx.textBaseline='middle';
+  [['rgba(0,140,190,0.9)',0.0],['rgba(220,30,110,0.9)',2.1],['rgba(20,20,20,0.92)',1.0]].forEach(([c,a],i)=>{const o=offv(a,i); regCtx.fillStyle=c; regCtx.fillText('ObaniA', cx+o.dx, h*0.51+o.dy);});
+  regCtx.globalCompositeOperation='source-over';
+  ['#0e8cc3','#d61f7c','#e8cf00','#111'].forEach((c,i)=>{const o=offv([0,2.1,4.2,1][i],i); regCtx.fillStyle=c; regCtx.fillRect(ox+w*0.1+i*(w*0.2)+o.dx, h*0.8+o.dy, w*0.16, 12);});
+}
 function drawJobObania(W,H,offv){
   regCtx.fillStyle='#efe9dd'; regCtx.fillRect(0,0,W,H);
+  const gap=8, lw=(W-gap*3)/2;
+  [gap, gap*2+lw].forEach(ox=>drawObaniaLabel(ox,lw,H,offv));
   const inks=[{solid:'rgba(0,140,190,0.85)',a:0.0},{solid:'rgba(220,30,110,0.85)',a:2.1},{solid:'rgba(20,20,20,0.9)',a:1.0},{solid:'rgba(255,255,255,0.95)',a:3.1,w:true}];
   drawMargin(W,H,offv,inks);
-  regCtx.globalCompositeOperation='multiply'; regCtx.font='bold 40px Georgia, serif'; regCtx.textAlign='center'; regCtx.textBaseline='middle';
-  [inks[0],inks[1],inks[2]].forEach((ink,i)=>{const o=offv(ink.a,i); regCtx.fillStyle=ink.solid; regCtx.fillText('ObaniA', W/2+o.dx, H*0.66+o.dy);});
-  regCtx.globalCompositeOperation='source-over';
 }
-// JOB 2: Bolachas — embalagem real: fundo Pantone vermelho, moldura dourada, bolacha (CMYK) com pepitas e furos, rótulo creme com o nome (tolerância média)
-function drawJobBolachas(W,H,offv){
-  // substrato branco
-  regCtx.fillStyle='#f4f1e8'; regCtx.fillRect(0,0,W,H);
-  // fundo vermelho da embalagem (plate vermelho próprio)
-  const oR=offv(1.2,0);
-  regCtx.fillStyle='#c4202a'; regCtx.fillRect(6+oR.dx,6+oR.dy,W-12,H-12);
-  // moldura dourada
-  regCtx.strokeStyle='rgba(240,205,110,0.95)'; regCtx.lineWidth=3; regCtx.strokeRect(15+oR.dx,15+oR.dy,W-30,H-30);
-  // bolacha em processo (cada plate com offset -> ghosting no desregisto)
-  const cx=W*0.5, cy=H*0.42, R=36;
-  const oY=offv(4.2,1), oM=offv(2.1,2), oK=offv(1.0,4);
+// JOB 2: Bolachas — embalagem realista: marca, foto, tabela nutricional, publicidade, peso, código de barras — 2 pistas
+function drawBolachaPack(ox,w,h,offv){
+  const oR=offv(1.2,0), oK=offv(1.0,4), oW=offv(3.1,0), oY=offv(4.2,1), oM=offv(2.1,2);
+  const pad=w*0.05, x=ox+pad, y=h*0.03, pw=w-pad*2, ph=h*0.94, cx=ox+w/2;
+  regCtx.fillStyle='#c4202a'; rrect(x+oR.dx,y+oR.dy,pw,ph,12); regCtx.fill();                               // fundo Pantone vermelho
+  regCtx.strokeStyle='rgba(240,205,110,0.95)'; regCtx.lineWidth=2.5; rrect(x+oR.dx+5,y+oR.dy+5,pw-10,ph-10,9); regCtx.stroke();
+  // logótipo da marca (falsa)
+  regCtx.fillStyle='#e9c96a'; rrect(x+oW.dx+pw*0.14, y+oW.dy+7, pw*0.72, 30, 15); regCtx.fill();
+  regCtx.fillStyle='#7a1418'; regCtx.textAlign='center'; regCtx.textBaseline='middle';
+  regCtx.font='bold 18px Georgia, serif'; regCtx.fillText('Crocantti', cx+oK.dx, y+18+oK.dy);
+  regCtx.font='7px Georgia, serif'; regCtx.fillText('DESDE 1962', cx+oK.dx, y+31+oK.dy);
+  // foto: pilha de bolachas (processo -> ghosting no desregisto)
+  const by=y+ph*0.34, pos=[[-16,4],[16,6],[0,-5]];
   regCtx.globalCompositeOperation='multiply';
-  regCtx.fillStyle='#e7b84e'; regCtx.beginPath(); regCtx.arc(cx+oY.dx,cy+oY.dy,R,0,Math.PI*2); regCtx.fill();            // massa dourada (Y)
-  regCtx.fillStyle='rgba(188,108,42,0.55)'; regCtx.beginPath(); regCtx.arc(cx+oM.dx,cy+oM.dy,R*0.98,0,Math.PI*2); regCtx.fill(); // tostado (M)
+  pos.forEach(([dx,dy2])=>{
+    regCtx.fillStyle='#e2b24c'; regCtx.beginPath(); regCtx.arc(cx+dx+oY.dx,by+dy2+oY.dy,22,0,Math.PI*2); regCtx.fill();
+    regCtx.fillStyle='rgba(190,110,45,0.5)'; regCtx.beginPath(); regCtx.arc(cx+dx+oM.dx,by+dy2+oM.dy,22,0,Math.PI*2); regCtx.fill();
+  });
   regCtx.globalCompositeOperation='source-over';
-  // contorno da bolacha (K)
-  regCtx.strokeStyle='rgba(60,36,18,0.85)'; regCtx.lineWidth=2.2; regCtx.beginPath(); regCtx.arc(cx+oK.dx,cy+oK.dy,R,0,Math.PI*2); regCtx.stroke();
-  // furos de cozedura ao centro (K)
-  regCtx.fillStyle='rgba(70,44,22,0.7)';
-  for(let i=0;i<5;i++){const a=i/5*Math.PI*2; regCtx.beginPath(); regCtx.arc(cx+oK.dx+Math.cos(a)*7, cy+oK.dy+Math.sin(a)*7, 1.6,0,Math.PI*2); regCtx.fill();}
-  // pepitas de chocolate (K)
   regCtx.fillStyle='#3a2412';
-  for(let i=0;i<7;i++){const a=i/7*Math.PI*2+0.35, rr=R*0.6; regCtx.beginPath(); regCtx.arc(cx+oK.dx+Math.cos(a)*rr, cy+oK.dy+Math.sin(a)*rr, 3.4,0,Math.PI*2); regCtx.fill();}
-  // rótulo creme com o nome
-  const oW=offv(3.1,0), bw=W*0.66, bh=36, bx=W/2-bw/2, by=H*0.72;
-  regCtx.fillStyle='#f6efe0'; rrect(bx+oW.dx,by+oW.dy,bw,bh,9); regCtx.fill();
-  regCtx.strokeStyle='rgba(240,205,110,0.9)'; regCtx.lineWidth=1.5; rrect(bx+oW.dx,by+oW.dy,bw,bh,9); regCtx.stroke();
-  regCtx.fillStyle='#b81f28'; regCtx.font='bold 23px Georgia, serif'; regCtx.textAlign='center'; regCtx.textBaseline='middle';
-  regCtx.fillText('Bolachas', W/2+oW.dx, by+bh*0.4+oW.dy);
-  regCtx.fillStyle='#7a5a2a'; regCtx.font='italic 10px Georgia, serif';
-  regCtx.fillText('com pepitas de chocolate', W/2+oW.dx, by+bh*0.8+oW.dy);
-  // contorno preto do nome (K) para evidenciar desregisto nas letras
-  regCtx.strokeStyle='rgba(20,15,10,0.5)'; regCtx.lineWidth=0.6; regCtx.font='bold 23px Georgia, serif';
-  regCtx.strokeText('Bolachas', W/2+oK.dx, by+bh*0.4+oK.dy);
-  // marcas de margem (CMYK + branco)
+  pos.forEach(([dx,dy2],k)=>{ for(let i=0;i<5;i++){const a=i/5*6.28+k; regCtx.beginPath(); regCtx.arc(cx+dx+oK.dx+Math.cos(a)*12,by+dy2+oK.dy+Math.sin(a)*12,2.5,0,Math.PI*2); regCtx.fill();} });
+  // nome do produto (branco knockout) + publicidade
+  regCtx.textAlign='center';
+  regCtx.fillStyle='#fbf4e6'; regCtx.font='bold 30px Georgia, serif'; regCtx.fillText('Bolachas', cx+oW.dx, y+ph*0.60+oW.dy);
+  regCtx.fillStyle='#f0d78a'; regCtx.font='italic 11px Georgia, serif'; regCtx.fillText('com pepitas de chocolate', cx+oW.dx, y+ph*0.68+oW.dy);
+  regCtx.fillStyle='#fbf4e6'; regCtx.font='bold italic 10px Georgia, serif'; regCtx.fillText('★ as mais crocantes ★', cx+oW.dx, y+ph*0.735+oW.dy);
+  // tabela nutricional
+  const tbW=pw*0.5, tbH=ph*0.21, tbx=x+8, tby=y+ph-tbH-9;
+  regCtx.fillStyle='#f3efe6'; rrect(tbx+oW.dx,tby+oW.dy,tbW,tbH,4); regCtx.fill();
+  regCtx.fillStyle='#20242c'; regCtx.textAlign='left'; regCtx.font='bold 7px monospace';
+  regCtx.fillText('INFO. NUTRICIONAL /100g', tbx+5+oK.dx, tby+9+oK.dy);
+  regCtx.font='6.5px monospace';
+  [['Energia','480 kcal'],['Lípidos','22 g'],['Açúcares','30 g'],['Sal','0,6 g']].forEach((r,i)=>{const ry=tby+19+i*8.5; regCtx.textAlign='left'; regCtx.fillText(r[0],tbx+5+oK.dx,ry+oK.dy); regCtx.textAlign='right'; regCtx.fillText(r[1],tbx+tbW-5+oK.dx,ry+oK.dy);});
+  // selo de peso
+  regCtx.fillStyle='#e9c96a'; regCtx.beginPath(); regCtx.arc(x+pw-24+oW.dx, tby+16+oW.dy, 17,0,Math.PI*2); regCtx.fill();
+  regCtx.fillStyle='#7a1418'; regCtx.font='bold 12px Georgia'; regCtx.textAlign='center'; regCtx.fillText('200g', x+pw-24+oK.dx, tby+16+oK.dy);
+  // código de barras
+  regCtx.fillStyle='#111'; let bxx=x+pw-78;
+  for(let i=0;i<28;i++){const bw=(i%3?1:2); if(i%2===0)regCtx.fillRect(bxx+oK.dx, y+ph-18+oK.dy, bw, 13); bxx+=bw+1.4;}
+  regCtx.font='5.5px monospace'; regCtx.textAlign='center'; regCtx.fillText('5 601234 567890', x+pw-50+oK.dx, y+ph-3+oK.dy);
+}
+function drawJobBolachas(W,H,offv){
+  regCtx.fillStyle='#efe9dd'; regCtx.fillRect(0,0,W,H);
+  const gap=8, lw=(W-gap*3)/2;
+  drawBolachaPack(gap,lw,H,offv); drawBolachaPack(gap*2+lw,lw,H,offv);
   const inks=[{solid:'rgba(0,150,200,0.85)',a:0.0},{solid:'rgba(225,30,90,0.85)',a:2.1},{solid:'rgba(245,225,0,0.85)',a:4.2},{solid:'rgba(20,20,20,0.9)',a:1.0},{solid:'rgba(255,255,255,0.95)',a:3.1,w:true}];
   drawMargin(W,H,offv,inks);
 }
-// JOB 3: 3 Pantones — big flat bands (tolerância larga)
+// JOB 3: 3 Pantones — bandas planas (tolerância larga) + wordmark repetido em 2 pistas
 function drawJobPantones(W,H,offv){
   regCtx.fillStyle='#efe9dd'; regCtx.fillRect(0,0,W,H);
   const cols=[{solid:'#1f7a5a',a:0.0},{solid:'#2b4b8c',a:2.1},{solid:'#c8862b',a:1.0}];
-  cols.forEach((p,i)=>{ const o=offv(p.a,i); regCtx.fillStyle=p.solid; regCtx.fillRect(o.dx, H*0.16+ (H*0.6)/3*i + o.dy, W, (H*0.6)/3+1); });
-  const oW=offv(3.1,3); regCtx.fillStyle='rgba(255,255,255,0.95)'; regCtx.font='bold 24px Georgia, serif'; regCtx.textAlign='center'; regCtx.textBaseline='middle';
-  regCtx.fillText('ObaniA', W/2+oW.dx, H*0.46+oW.dy);
+  cols.forEach((p,i)=>{ const o=offv(p.a,i); regCtx.fillStyle=p.solid; regCtx.fillRect(o.dx, H*0.14+ (H*0.62)/3*i + o.dy, W, (H*0.62)/3+1); });
+  const gap=8, lw=(W-gap*3)/2;
+  [gap+lw/2, gap*2+lw+lw/2].forEach(cx=>{const oW=offv(3.1,3); regCtx.fillStyle='rgba(255,255,255,0.95)'; regCtx.font='bold 34px Georgia, serif'; regCtx.textAlign='center'; regCtx.textBaseline='middle'; regCtx.fillText('ObaniA', cx+oW.dx, H*0.45+oW.dy);});
   const inks=[cols[0],cols[1],cols[2],{solid:'rgba(255,255,255,0.95)',a:3.1,w:true}];
   drawMargin(W,H,offv,inks);
 }
@@ -1234,7 +1265,9 @@ const INKS=[
   {n:'Cyan',    css:'rgba(10,79,110,0.9)',  tin:0x0e8cc3},
   {n:'Magenta', css:'rgba(110,16,64,0.9)',  tin:0xd61f7c},
   {n:'Amarelo', css:'rgba(140,120,10,0.9)', tin:0xe8cf00},
-  {n:'Preto',   css:'rgba(18,18,18,0.92)',  tin:0x1c1c1c}
+  {n:'Preto',   css:'rgba(18,18,18,0.92)',  tin:0x1c1c1c},
+  {n:'Pantone Verm.', css:'rgba(150,20,30,0.9)', tin:0xd21f2b, spot:'red',  rgb:[210,31,43]},
+  {n:'Pantone Azul',  css:'rgba(14,50,120,0.9)', tin:0x0e5fb0, spot:'blue', rgb:[14,95,176]}
 ];
 let inkSel=0;
 // tipos de tinta (formulação conforme fichas técnicas típicas Flint Group / Sun Chemical p/ solvente acetato)
@@ -1265,7 +1298,9 @@ document.querySelectorAll('.inkBtn').forEach(b=>b.addEventListener('click',()=>{
   inkSel=+b.dataset.ink;
   document.querySelectorAll('.inkBtn').forEach(x=>x.classList.toggle('on',x===b));
   matInk.color.setHex(INKS[inkSel].tin);
+  if(floodMat)floodMat.color.setHex(INKS[inkSel].tin);
   clogPainted=-1; prevPainted=-1;   // repintar cilindro e prova na nova cor
+  if(mode==='clog') buildCylChannelTex();   // a gravação do cilindro passa a ser o canal desta cor
 }));
 // tipo de tinta: muda o standard de viscosidade (cromia 13 s · direta 15,5 s) e a ficha técnica
 function updateTDS(){document.getElementById('tdsBox').innerHTML=INKTYPES[inkType].tds;}
@@ -1300,6 +1335,7 @@ document.querySelectorAll('.pmRow button').forEach(b=>b.addEventListener('click'
   prevPainted=-1;
 }));
 function buildPrevBase(){
+  // apenas o PROCESSO (cena fotográfica CMYK). A caixa vermelha e o texto são SPOTS (Pantone), desenhados por cima.
   const W=300,H=140, oc=document.createElement('canvas'); oc.width=W; oc.height=H; const c=oc.getContext('2d');
   const g=c.createLinearGradient(0,0,0,H); g.addColorStop(0,'#5aa8d8'); g.addColorStop(0.55,'#cfe6f3'); g.addColorStop(1,'#f2efe6');
   c.fillStyle=g; c.fillRect(0,0,W,H);                                        // céu em degradé (altas-luzes de cyan)
@@ -1309,35 +1345,67 @@ function buildPrevBase(){
   c.fillStyle='#2e7d3d'; c.beginPath(); c.moveTo(0,108); c.quadraticCurveTo(120,92,300,110); c.lineTo(300,140); c.lineTo(0,140); c.closePath(); c.fill();
   c.fillStyle='#f08a24'; c.beginPath(); c.arc(232,66,19,0,Math.PI*2); c.fill();  // fruto (M+Y)
   c.fillStyle='#d96f10'; c.beginPath(); c.arc(237,71,12,0,Math.PI*2); c.fill();
-  c.fillStyle='#c4202a'; c.fillRect(0,106,W,34);                              // cinta vermelha
-  c.fillStyle='#ffffff'; c.font='bold 19px Georgia, serif'; c.textAlign='center'; c.textBaseline='middle'; c.fillText('ObaniA', W/2, 121);
-  c.fillStyle='rgba(255,255,255,0.85)'; c.font='italic 9px Georgia, serif'; c.fillText('embalagem flexível · cromia CMYK', W/2, 133);
   prevBase=c.getImageData(0,0,W,H);
 }
-// render do trabalho: separação RGB->CMYK por pixel; "solo" mostra só o canal desta estação impresso na cor da tinta
-function renderArt(ctx,solo,level,thinF){
-  if(!prevBase)buildPrevBase();
+// separação do PROCESSO (RGB->CMYK). degChan: 0-3 degradado (entupido), -1 nenhum. solo: só esse canal na cor da tinta.
+function renderProcess(ctx,degChan,th,dens,solo){
   const W=300,H=140, src=prevBase.data, out=ctx.createImageData(W,H), d=out.data;
-  const t=(level||0)/100, th=t*0.8, dens=(1-0.45*t)*(1-0.3*(thinF||0));
-  const tin=INKS[inkSel].tin, ir=(tin>>16&255)/255, ig=(tin>>8&255)/255, ib=(tin&255)/255;
+  const tin=degChan>=0?INKS[degChan].tin:0, ir=(tin>>16&255)/255, ig=(tin>>8&255)/255, ib=(tin&255)/255;
   for(let i=0;i<src.length;i+=4){
     let r=src[i]/255,g=src[i+1]/255,b=src[i+2]/255;
     let K=(1-Math.max(r,g,b))*0.9, iK=1-K;
     let cmyk=[iK>0?(1-r-K)/iK:0, iK>0?(1-g-K)/iK:0, iK>0?(1-b-K)/iK:0, K];
-    let v=cmyk[inkSel]; v = v<th ? 0 : v*dens;    // altas-luzes (alvéolos pequenos) entopem primeiro; depois perde densidade
-    if(solo){
-      d[i]=(1-v*(1-ir))*255; d[i+1]=(1-v*(1-ig))*255; d[i+2]=(1-v*(1-ib))*255;
-    } else {
-      cmyk[inkSel]=v;
-      const k2=cmyk[3], ik=1-k2;
-      d[i]=(1-cmyk[0])*ik*255; d[i+1]=(1-cmyk[1])*ik*255; d[i+2]=(1-cmyk[2])*ik*255;
-    }
+    if(degChan>=0){let v=cmyk[degChan]; cmyk[degChan]= v<th?0:v*dens;}
+    if(solo && degChan>=0){const v=cmyk[degChan]; d[i]=(1-v*(1-ir))*255; d[i+1]=(1-v*(1-ig))*255; d[i+2]=(1-v*(1-ib))*255;}
+    else {const k2=cmyk[3], ik=1-k2; d[i]=(1-cmyk[0])*ik*255; d[i+1]=(1-cmyk[1])*ik*255; d[i+2]=(1-cmyk[2])*ik*255;}
     d[i+3]=255;
   }
   ctx.putImageData(out,0,0);
 }
+// --- elementos Pantone (spots): caixa vermelha, texto branco knockout, "i" azul
+function boxPath(c){const x=6,y=104,w=288,h=32,r=5;c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+function paintDeg(ctx,fn,deg){   // desenha fn; se deg, reduz densidade (alpha) e abre buracos (alvéolos entupidos) -> detalhe fino parte-se
+  if(!deg){fn(ctx);return;}
+  tmpCtx.clearRect(0,0,300,140); fn(tmpCtx);
+  tmpCtx.globalCompositeOperation='destination-out'; tmpCtx.fillStyle='#000';
+  const n=Math.round(deg.t*clogSpots.length*0.9);
+  for(let i=0;i<n;i++){const s=clogSpots[i]; tmpCtx.beginPath(); tmpCtx.arc(s.x/1024*300, s.y/256*140, Math.max(1,s.r*0.5),0,Math.PI*2); tmpCtx.fill();}
+  tmpCtx.globalCompositeOperation='source-over';
+  ctx.globalAlpha=deg.dens; ctx.drawImage(tmpCv,0,0); ctx.globalAlpha=1;
+}
+function paintRedBox(ctx,deg){ paintDeg(ctx,c=>{c.fillStyle='#d21f2b'; boxPath(c); c.fill();}, deg); }
+function paintWhiteText(ctx){ ctx.fillStyle='#f2efe6'; ctx.font='bold 19px Georgia, serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('ObaniA',150,120); ctx.font='italic 8px Georgia, serif'; ctx.fillStyle='rgba(242,239,230,0.9)'; ctx.fillText('embalagem flexível · cromia + 2 Pantones',150,133); }
+function paintBlueI(ctx,deg){ paintDeg(ctx,c=>{c.fillStyle='#0e5fb0'; c.font='bold 19px Georgia, serif'; c.textAlign='left'; c.textBaseline='middle'; const full=c.measureText('ObaniA').width, left=150-full/2, preI=c.measureText('Oban').width; c.fillText('i', left+preI, 120);}, deg); }
+// render do trabalho: processo (canais 0-3) + 2 Pantones (4 verm., 5 azul). "solo"=só o canal desta estação; o entupimento só afeta a cor selecionada.
+function renderArt(ctx,solo,level,thinF){
+  if(!prevBase)buildPrevBase();
+  const t=(level||0)/100, th=t*0.8, dens=(1-0.45*t)*(1-0.3*(thinF||0));
+  const sel=inkSel, spot=INKS[sel].spot;
+  if(!spot){
+    renderProcess(ctx, sel, th, dens, solo);
+    if(!solo){ paintRedBox(ctx,null); paintWhiteText(ctx); paintBlueI(ctx,null); }
+  } else {
+    if(solo){ ctx.fillStyle='#efe9dd'; ctx.fillRect(0,0,300,140); }
+    else renderProcess(ctx,-1,0,1,false);
+    const rd=sel===4?{t,dens}:null, bd=sel===5?{t,dens}:null;
+    if(solo){ if(sel===4) paintRedBox(ctx,rd); if(sel===5) paintBlueI(ctx,bd); }
+    else { paintRedBox(ctx,rd); paintWhiteText(ctx); paintBlueI(ctx,bd); }
+  }
+}
+// gravação do cilindro (Fase 3) = a separação do canal selecionado, em 2 pistas, sobre aço cromado
+function buildCylChannelTex(){
+  if(!prevBase)buildPrevBase();
+  renderArt(covCtx,true,0,0);
+  const c=cylChanCtx; c.globalAlpha=1; c.fillStyle='#6b7a86'; c.fillRect(0,0,1024,256);
+  // U (largura da imagem)=desenvolvimento à volta -> 3 repetições; V (altura)=largura do cilindro -> 2 pistas lado a lado
+  c.globalAlpha=0.9; for(let u=0;u<3;u++)for(let v=0;v<2;v++) c.drawImage(covCv,0,0,300,140, u*(1024/3), v*128, 1024/3, 128);
+  c.globalAlpha=0.16; c.fillStyle='#28323e';
+  for(let y=6;y<256;y+=9)for(let x=(y/9%2?4:0);x<1024;x+=9){c.beginPath();c.arc(x,y,1.3,0,6.28);c.fill();}
+  c.globalAlpha=1; cylChanTex.needsUpdate=true;
+}
 function overlayDefects(ctx,veu,riscos){
-  if(veu){const c=INKS[inkSel]; ctx.fillStyle=c.css.replace('0.9','0.12').replace('0.92','0.12'); ctx.fillRect(0,0,300,140);}
+  const tin=INKS[inkSel].tin, r=tin>>16&255,g=tin>>8&255,b=tin&255;
+  if(veu){ctx.fillStyle='rgba('+r+','+g+','+b+',0.12)'; ctx.fillRect(0,0,300,140);}
   if(riscos){ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.lineWidth=2; [0.28,0.55,0.78].forEach(f=>{ctx.beginPath(); ctx.moveTo(0,f*140); ctx.lineTo(300,f*140); ctx.stroke();});}
 }
 function drawClogPreview(level,veu,riscos,thinF){
@@ -1357,7 +1425,8 @@ function clogTick(dt){
   // O cilindro sobe do tinteiro pelo lado de TRÁS (onde está a lâmina) e o topo move-se para a frente com o filme.
   const rpmRad=(rpm/60)*Math.PI*2; angle+=rpmRad*dt; rotor.rotation.x=angle;
   if(pressorSpin)pressorSpin.rotation.x=-angle*(cylR()/pressorR);
-  filmTex.offset.y-=sp*dt*0.9;   // filme a correr: acompanha a rotação, sai à frente já impresso
+  // filme sincronizado com a velocidade de superfície do cilindro (v=R·ω): a 200+ rpm a imagem mal se percebe
+  filmTex.offset.y-=cylR()*rpmRad*0.3*dt;
   // pressão a mais achata o ângulo de contacto (a lâmina deita-se) — alívio temporário do véu que volta pior
   const effAng=ang-Math.max(0,blade-2.5)*6;
   if(bladeGrp){
@@ -1507,7 +1576,8 @@ function setMode(m){
   if(m==='assembly'){ asmStep=0; asm=0; E.speed.value=0; asmDia.value=E.dia.value; updateAsmDia(); asmSlot.value=E.dSlot.value; asmTab.value=E.dTab.value; updateAsmWear(); readControls(); updateAsmLabel(); setAsmCamera(0); }
   else { resetAssembledX(); }
   if(m==='machine'){ camTheta=camHome.t; camPhi=camHome.p; camRad=camHome.r; camTarget.set(0,-0.6,0); }
-  if(m==='clog'){ resetMachineParts(); buildInkUnit(); rebuildClogOverlay(); clogPainted=-1; paintClog(CG.clog); camTheta=0.95; camPhi=1.12; camRad=18; camTarget.set(0,0,0); }
+  if(m==='clog'){ resetMachineParts(); matCylEngraved.map=cylChanTex; matCylEngraved.needsUpdate=true; buildInkUnit(); buildCylChannelTex(); rebuildClogOverlay(); clogPainted=-1; paintClog(CG.clog); camTheta=0.95; camPhi=1.12; camRad=18; camTarget.set(0,0,0); }
+  else { matCylEngraved.map=engTex; matCylEngraved.needsUpdate=true; }
   resize();
 }
 const asmDia=document.getElementById('asmDia'), asmDiaVal=document.getElementById('asmDiaVal');
