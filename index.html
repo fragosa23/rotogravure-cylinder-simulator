@@ -758,9 +758,10 @@ function buildInkUnit(){
   [[0,-trayD/2],[0,trayD/2]].forEach(([dx,dz])=>{const w=new THREE.Mesh(new THREE.BoxGeometry(trayW,trayH,0.08), matTray); w.position.set(dx,trayTop-trayH/2,dz); inkUnit.add(w);});
   [[-trayW/2,0],[trayW/2,0]].forEach(([dx,dz])=>{const w=new THREE.Mesh(new THREE.BoxGeometry(0.08,trayH,trayD), matTray); w.position.set(dx,trayTop-trayH/2,dz); inkUnit.add(w);});
   const ink=new THREE.Mesh(new THREE.BoxGeometry(trayW-0.12,0.04,trayD-0.12), matInk); ink.position.y=trayTop-0.12; inkUnit.add(ink);
-  // ZONA INUNDADA: à saída do tinteiro (fundo) o cilindro está TODO coberto de tinta; só depois da lâmina fica tinta apenas nos alvéolos
-  floodMat=new THREE.MeshBasicMaterial({color:INKS[inkSel].tin, side:THREE.DoubleSide});
-  const flood=new THREE.Mesh(new THREE.CylinderGeometry(R+0.01,R+0.01,ENGR_W,48,1,true, 3*Math.PI/2-1.35, 2.7), floodMat);
+  // ZONA INUNDADA: o cilindro sai do tinteiro (fundo) coberto de tinta e leva-a ATÉ À LÂMINA; só a lâmina o limpa.
+  // theta local -> mundo: (Y,Z)=(R·sinθ,R·cosθ). Fundo=3π/2 · traseira=π · lâmina=π−a. Cobre da lâmina (π−a) pela traseira até ao tinteiro.
+  floodMat=new THREE.MeshStandardMaterial({color:INKS[inkSel].tin, metalness:.15, roughness:.4, side:THREE.DoubleSide});
+  const fa=bladeA(), flood=new THREE.Mesh(new THREE.CylinderGeometry(R+0.012,R+0.012,ENGR_W,64,1,true, Math.PI-fa, Math.PI/2+fa+0.35), floodMat);
   flood.rotation.z=Math.PI/2; inkUnit.add(flood);
   // raclete: lâmina + suporte no lado de TRÁS (-z) — o lado que sobe do tinteiro para o ponto de impressão
   // grupo pivotado no ponto de contacto -> o ângulo da lâmina inclina o conjunto sem sair do contacto
@@ -809,11 +810,19 @@ function buildInkUnit(){
 const clogCv=document.createElement('canvas'); clogCv.width=1024; clogCv.height=256;
 const clogCtx=clogCv.getContext('2d');
 const clogTex=new THREE.CanvasTexture(clogCv); clogTex.wrapS=THREE.RepeatWrapping; clogTex.wrapT=THREE.RepeatWrapping;
-// filme impresso em máquina (só a cor da estação)
-const filmCv=document.createElement('canvas'); filmCv.width=300; filmCv.height=140;
+// filme impresso em máquina: fonte (1 desenho) + composição contínua (2 pistas + margens de papel p/ não haver "linhas a meio")
+const filmSrcCv=document.createElement('canvas'); filmSrcCv.width=300; filmSrcCv.height=140; const filmSrcCtx=filmSrcCv.getContext('2d');
+const filmCv=document.createElement('canvas'); filmCv.width=512; filmCv.height=256;
 const filmCtx=filmCv.getContext('2d');
-const filmTex=new THREE.CanvasTexture(filmCv); filmTex.wrapS=THREE.RepeatWrapping; filmTex.wrapT=THREE.RepeatWrapping; filmTex.repeat.set(2,1.6);   // 2 pistas ao largo do filme
+const filmTex=new THREE.CanvasTexture(filmCv); filmTex.wrapS=THREE.RepeatWrapping; filmTex.wrapT=THREE.RepeatWrapping; filmTex.repeat.set(1,1.5);
 let filmOut=null;
+function buildFilm(level,veu,riscos,thin){
+  renderArt(filmSrcCtx,true,level,thin); overlayDefects(filmSrcCtx,veu,riscos);
+  const c=filmCtx; c.fillStyle='#efe9dd'; c.fillRect(0,0,512,256);                 // substrato (papel/filme)
+  const dw=256, dh=Math.round(256*140/300), y=Math.round((256-dh)/2);              // aspeto mantido, centrado -> margens de papel iguais em cima/baixo (wrap contínuo)
+  for(let l=0;l<2;l++) c.drawImage(filmSrcCv,0,0,300,140, l*dw, y, dw, dh);         // 2 pistas ao largo
+  filmTex.needsUpdate=true;
+}
 // canvas auxiliares: separação por canal (gravação do cilindro), temporário para degradar spots
 const covCv=document.createElement('canvas'); covCv.width=300; covCv.height=140; const covCtx=covCv.getContext('2d');
 const tmpCv=document.createElement('canvas'); tmpCv.width=300; tmpCv.height=140; const tmpCtx=tmpCv.getContext('2d');
@@ -833,13 +842,9 @@ function paintClog(level){
   clogTex.needsUpdate=true;
 }
 let clogOverlay=null;
-function rebuildClogOverlay(){
-  if(clogOverlay){cylGroup.remove(clogOverlay); clogOverlay=null;}
-  const R=cylR();
-  clogOverlay=new THREE.Mesh(new THREE.CylinderGeometry(R+0.006,R+0.006,ENGR_W,64,1,true),
-    new THREE.MeshStandardMaterial({map:clogTex,transparent:true,depthWrite:false,metalness:.3,roughness:.6}));
-  clogOverlay.rotation.z=Math.PI/2; cylGroup.add(clogOverlay);
-}
+// Em rotogravura o entupimento NÃO faz manchas no cilindro (as células ficam com resíduo, invisível à escala);
+// o efeito vê-se é na IMPRESSÃO (pontos que deixam de transferir). Por isso não se pinta nada no cilindro.
+function rebuildClogOverlay(){ if(clogOverlay){cylGroup.remove(clogOverlay); clogOverlay=null;} }
 
 // ---- Camera
 let camTheta=0.72,camPhi=1.08,camRad=30,camTarget=new THREE.Vector3(0,-0.6,0);
@@ -1415,7 +1420,7 @@ function drawClogPreview(level,veu,riscos,thinF){
   if(Math.abs(level-prevPainted)<1.0 && inkSel===prevInkP && veu===prevVeu && riscos===prevRis && Math.abs(thinF-prevThin)<0.05 && prevModeP===prevMode)return;
   prevPainted=level; prevInkP=inkSel; prevVeu=veu; prevRis=riscos; prevThin=thinF; prevModeP=prevMode;
   renderArt(cPrevCtx,solo,level,thinF); overlayDefects(cPrevCtx,veu,riscos);            // como está a sair
-  renderArt(filmCtx,true,level,thinF); overlayDefects(filmCtx,veu,riscos); filmTex.needsUpdate=true;   // filme em máquina (sempre só a cor)
+  buildFilm(level,veu,riscos,thinF);                                                    // filme em máquina: mesma imagem da gravação, contínua, 2 pistas
 }
 function clogTick(dt){
   const rpm=+cEl.cSpeed.value, sp=rpm/300;
