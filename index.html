@@ -825,6 +825,7 @@ function buildFilm(level,veu,riscos,thin){
 }
 // canvas auxiliares: separação por canal (gravação do cilindro), temporário para degradar spots
 const covCv=document.createElement('canvas'); covCv.width=300; covCv.height=140; const covCtx=covCv.getContext('2d');
+const covRotCv=document.createElement('canvas'); covRotCv.width=140; covRotCv.height=300; const covRotCtx=covRotCv.getContext('2d');   // cena rodada 90° p/ a gravação casar com a impressão
 const tmpCv=document.createElement('canvas'); tmpCv.width=300; tmpCv.height=140; const tmpCtx=tmpCv.getContext('2d');
 const cylChanCv=document.createElement('canvas'); cylChanCv.width=1024; cylChanCv.height=256; const cylChanCtx=cylChanCv.getContext('2d');
 const cylChanTex=new THREE.CanvasTexture(cylChanCv); cylChanTex.wrapS=THREE.RepeatWrapping; cylChanTex.wrapT=THREE.RepeatWrapping;
@@ -1397,13 +1398,16 @@ function renderArt(ctx,solo,level,thinF){
     else { paintRedBox(ctx,rd); paintWhiteText(ctx); paintBlueI(ctx,bd); }
   }
 }
-// gravação do cilindro (Fase 3) = a separação do canal selecionado, em 2 pistas, sobre aço cromado
+// gravação do cilindro (Fase 3) = a separação do canal selecionado, sobre aço cromado.
+// Orientação FIEL: largura da cena -> axial (pistas lado a lado); altura da cena -> circunferência (desenvolvimento).
+// Assim a gravação e a impressão no filme ficam na MESMA orientação (a cena não sai rodada 90°).
 function buildCylChannelTex(){
   if(!prevBase)buildPrevBase();
   renderArt(covCtx,true,0,0);
+  covRotCtx.clearRect(0,0,140,300); covRotCtx.save(); covRotCtx.translate(140,0); covRotCtx.rotate(Math.PI/2); covRotCtx.drawImage(covCv,0,0,300,140); covRotCtx.restore();
   const c=cylChanCtx; c.globalAlpha=1; c.fillStyle='#6b7a86'; c.fillRect(0,0,1024,256);
-  // U (largura da imagem)=desenvolvimento à volta -> 3 repetições; V (altura)=largura do cilindro -> 2 pistas lado a lado
-  c.globalAlpha=0.9; for(let u=0;u<3;u++)for(let v=0;v<2;v++) c.drawImage(covCv,0,0,300,140, u*(1024/3), v*128, 1024/3, 128);
+  // U (circunferência)=desenvolvimento (altura da cena) x2; V (axial)=2 pistas (largura da cena)
+  c.globalAlpha=0.9; for(let u=0;u<2;u++)for(let v=0;v<2;v++) c.drawImage(covRotCv,0,0,140,300, u*512, v*128, 512, 128);
   c.globalAlpha=0.16; c.fillStyle='#28323e';
   for(let y=6;y<256;y+=9)for(let x=(y/9%2?4:0);x<1024;x+=9){c.beginPath();c.arc(x,y,1.3,0,6.28);c.fill();}
   c.globalAlpha=1; cylChanTex.needsUpdate=true;
