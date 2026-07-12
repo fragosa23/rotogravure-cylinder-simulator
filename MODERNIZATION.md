@@ -1,84 +1,88 @@
 # Modernização do simulador
 
-Esta branch introduz uma camada visual nova sem substituir nem arriscar as animações existentes do simulador.
+## Estado atual
 
-## Como testar
+A primeira fase da modernização está implementada em `modern.html` sem substituir o simulador base de `index.html`.
 
-Abrir:
+### Concluído
 
-```text
-modern.html
-```
+- novo shell visual responsivo;
+- navegação direta entre os três módulos;
+- tema moderno aplicado ao simulador incorporado;
+- tipografia e áreas de toque maiores;
+- modo de texto ampliado e ecrã inteiro;
+- cartões para seleção do sistema de travamento;
+- campos numéricos sincronizados com os sliders técnicos principais;
+- modelos Three.js diferentes para contra-porca, anilhas de cunha, patilha e porca castelo com cavilha;
+- correção da terminologia e dos coeficientes didáticos de resistência;
+- correção da documentação de desenvolvimento e diâmetro;
+- teste Playwright e workflow de GitHub Actions.
 
-O ficheiro carrega o simulador atual e aplica a nova experiência visual.
+## Decisões confirmadas
 
-## Implementado nesta branch
+### Massa do cilindro
 
-- Shell moderno com barra superior e navegação entre os três módulos.
-- Painel contextual com descrição da fase ativa.
-- Área 3D com aspeto de aplicação técnica moderna.
-- Interface responsiva para computador, tablet e telemóvel.
-- Tipografia maior e hierarquia visual mais clara.
-- Botão de texto ampliado.
-- Botão de ecrã inteiro.
-- Estilos modernos aplicados aos painéis originais do simulador.
-- Seleção do sistema de travamento por cartões em vez de um slider abstrato.
-- Descrição do princípio de funcionamento de cada travamento.
-- Melhorias iniciais de acessibilidade: idioma, rótulos dos sliders e estado anunciado.
+Não será transformada num parâmetro configurável nesta fase. O projeto assume cilindros equivalentes e não precisa de uma escolha de construção ou material.
 
-## Sistemas de travamento expostos
+### Custos em euros
 
-1. Sem travamento.
-2. Contra-porca.
-3. Anilha de freio.
-4. Patilha dobrável.
-5. Cavilha.
+Não fazem parte do objetivo atual. A aplicação continua centrada em formação técnica, qualidade, manutenção e produção.
 
-Nesta primeira etapa os cartões comandam o modelo físico que já existia. A geometria 3D ainda usa o conjunto atual de porcas/anilhas.
+### Sistemas de travamento
 
-## Próxima etapa técnica
+A aplicação distingue cinco configurações:
 
-Para mostrar diferenças mecânicas reais na animação é necessário alterar diretamente a construção Three.js do conjunto exterior:
+1. sem travamento;
+2. contra-porca;
+3. anilhas de cunha;
+4. anilha de patilha;
+5. porca castelo com cavilha.
 
-- extrair a criação das porcas e anilhas para um construtor próprio;
-- criar uma geometria diferente para cada sistema;
-- desmontar e montar o sistema escolhido durante a troca;
-- alterar o comportamento de rotação e deslocamento axial conforme o mecanismo;
-- representar a dobra da patilha;
-- representar a inserção da cavilha;
-- separar anilha de mola, anilha dentada e par de anilhas de cunha;
-- libertar geometrias e materiais antigos com `dispose()` durante a troca.
+Cada configuração altera a seleção, descrição, resistência didática e representação 3D.
 
-## Arquitetura recomendada para a segunda etapa
+## Arquitetura
+
+A interface moderna foi separada do simulador base para reduzir risco. Contudo, `index.html` continua monolítico.
+
+A próxima refatoração deve ser feita por etapas:
 
 ```text
 src/
   core/
     state.js
-    simulation-config.js
+    constants.js
+    clock.js
+  scene/
+    scene.js
+    camera.js
+    dispose.js
   machine/
     cylinder.js
     shaft.js
-    locking-system.js
-    locking-geometries.js
+    locking.js
+    ink-unit.js
   simulations/
-    junker-model.js
-    clogging-model.js
-    production-model.js
+    junker.js
+    clogging.js
+    production.js
+  previews/
+    registration.js
+    print.js
   ui/
-    navigation.js
-    locking-selector.js
+    controls.js
     panels.js
 ```
 
-A migração para esta estrutura deve ser feita depois de confirmar visualmente a direção da nova interface.
+## Próximas prioridades
 
-## Limitações atuais
+1. extrair os cálculos do efeito Junker para funções puras;
+2. extrair a simulação de entupimento;
+3. centralizar constantes e unidades;
+4. acrescentar testes unitários dos modelos;
+5. atualizar Three.js num PR isolado;
+6. acrescentar descarte sistemático de geometrias, materiais e texturas nas reconstruções;
+7. criar transições de câmara específicas para cada sistema de travamento.
 
-- `modern.html` é uma entrada alternativa; o `index.html` original permanece intacto.
-- O código principal continua concentrado no `index.html`.
-- Os cinco cartões correspondem aos cinco níveis do modelo atual.
-- Ainda não existem modelos 3D exclusivos para cada sistema.
-- Ainda não foi feita a migração para Vite ou módulos ES.
+## Regra de validação
 
-Esta abordagem permite avaliar a nova UI sem comprometer a versão funcional atual.
+O PR só deve ser integrado quando o workflow `Simulator smoke test` estiver verde. O teste abre a aplicação em Chromium, percorre os módulos e valida a seleção dos cinco sistemas de travamento.
