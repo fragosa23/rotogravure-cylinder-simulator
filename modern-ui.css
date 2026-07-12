@@ -33,6 +33,7 @@ body{
 }
 button,a{font:inherit}
 button{color:inherit}
+button:focus-visible,a:focus-visible{outline:3px solid rgba(103,185,255,.55);outline-offset:3px}
 
 .app-shell{height:100%;display:grid;grid-template-rows:72px minmax(0,1fr)}
 .topbar{
@@ -51,12 +52,12 @@ button{color:inherit}
 .phase-nav button,.module-list button{
   border:1px solid transparent;background:transparent;cursor:pointer;transition:.2s ease;
 }
-.phase-nav button{padding:10px 14px;border-radius:12px;color:var(--muted);font-size:13px}
+.phase-nav button{padding:10px 14px;border-radius:12px;color:var(--muted);font-size:13px;min-height:42px}
 .phase-nav button span{margin-right:6px;font-size:10px;color:#6f7d99}
 .phase-nav button:hover,.phase-nav button.active{background:rgba(103,185,255,.1);border-color:var(--line-strong);color:var(--text)}
 .phase-nav button.active span{color:var(--accent)}
 .top-actions{display:flex;gap:8px;margin-left:auto}
-.icon-button{width:40px;height:40px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.035);cursor:pointer}
+.icon-button{width:44px;height:44px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.035);cursor:pointer}
 .icon-button:hover,.icon-button[aria-pressed=true]{border-color:var(--line-strong);background:rgba(103,185,255,.1)}
 
 .workspace{min-height:0;display:grid;grid-template-columns:300px minmax(0,1fr);gap:18px;padding:18px}
@@ -66,7 +67,7 @@ button{color:inherit}
 .context-panel h1{margin:0;font:700 28px/1.08 'Space Grotesk',sans-serif;letter-spacing:-.03em}
 .module-description{margin:14px 0 24px;color:var(--muted);font-size:13px;line-height:1.65}
 .module-list{display:grid;gap:9px}
-.module-list button{width:100%;display:grid;grid-template-columns:42px 1fr;gap:10px;text-align:left;align-items:center;padding:13px;border-radius:14px;border-color:var(--line);background:rgba(255,255,255,.025)}
+.module-list button{width:100%;display:grid;grid-template-columns:42px 1fr;gap:10px;text-align:left;align-items:center;padding:13px;border-radius:14px;border-color:var(--line);background:rgba(255,255,255,.025);min-height:66px}
 .module-list button:hover,.module-list button.active{transform:translateX(3px);background:var(--surface-hover);border-color:var(--line-strong)}
 .module-number{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:rgba(103,185,255,.09);color:var(--accent);font-size:11px;font-weight:700}
 .module-list strong,.module-list small{display:block}
@@ -84,6 +85,8 @@ button{color:inherit}
 .simulator-toolbar p{margin:0;color:var(--muted);font-size:10px}
 .live-indicator{display:inline-flex;align-items:center;gap:7px;padding:6px 9px;border-radius:999px;background:rgba(87,214,161,.08);color:var(--ok);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
 .live-indicator i{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 12px var(--ok)}
+.live-indicator.error{background:rgba(255,111,125,.1);color:var(--danger)}
+.live-indicator.error i{background:var(--danger);box-shadow:0 0 12px var(--danger)}
 iframe{width:100%;height:100%;border:0;background:#080c14}
 .loading-state{position:absolute;inset:54px 0 0;display:grid;place-content:center;text-align:center;background:#080c14;transition:opacity .35s ease,visibility .35s ease}
 .loading-state.hidden{opacity:0;visibility:hidden}
@@ -109,9 +112,11 @@ body.large-text .module-list small{font-size:12px}
   .brand{order:1;flex:1}
   .top-actions{order:2}
   .phase-nav{order:3;width:100%;overflow:auto;justify-content:flex-start;padding-bottom:2px}
-  .phase-nav button{white-space:nowrap}
+  .phase-nav button{white-space:nowrap;min-height:44px}
   .workspace{grid-template-columns:1fr;padding:10px;gap:10px}
   .context-panel{display:none}
   .simulator-card{height:calc(100svh - 125px);border-radius:18px}
   .simulator-toolbar p{display:none}
+  .simulator-toolbar{padding:0 12px}
+  .live-indicator{font-size:8px}
 }
