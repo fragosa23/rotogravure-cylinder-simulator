@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#070b14" />
+  <title>Rotogravure Lab</title>
+  <link rel="stylesheet" href="modern-ui.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="modern.html" aria-label="Rotogravure Lab — início">
+        <span class="brand-mark" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </span>
+        <span>
+          <strong>Rotogravure Lab</strong>
+          <small>Simulador técnico interativo</small>
+        </span>
+      </a>
+
+      <nav class="phase-nav" aria-label="Módulos do simulador">
+        <button type="button" data-phase="assembly">
+          <span>01</span> Montagem
+        </button>
+        <button type="button" data-phase="machine">
+          <span>02</span> Efeito Junker
+        </button>
+        <button type="button" data-phase="clog">
+          <span>03</span> Entupimento
+        </button>
+      </nav>
+
+      <div class="top-actions">
+        <button id="largeText" type="button" class="icon-button" aria-pressed="false" title="Aumentar texto">Aa</button>
+        <button id="fullscreen" type="button" class="icon-button" title="Ecrã inteiro">⛶</button>
+      </div>
+    </header>
+
+    <section class="workspace">
+      <aside class="context-panel" aria-label="Informação do módulo">
+        <p class="eyebrow">Formação em rotogravura</p>
+        <h1 id="moduleTitle">Escolhe um módulo</h1>
+        <p id="moduleDescription" class="module-description">
+          Explora a montagem do cilindro, o auto-desaperto causado por vibração e os defeitos ligados à tinta e à raclete.
+        </p>
+
+        <div class="module-list">
+          <button type="button" data-phase="assembly">
+            <span class="module-number">01</span>
+            <span><strong>Montagem</strong><small>Veio, buchas, escatel e rodas</small></span>
+          </button>
+          <button type="button" data-phase="machine">
+            <span class="module-number">02</span>
+            <span><strong>Efeito Junker</strong><small>Vibração, desaperto e produção</small></span>
+          </button>
+          <button type="button" data-phase="clog">
+            <span class="module-number">03</span>
+            <span><strong>Entupimento</strong><small>Tinta, raclete e altas-luzes</small></span>
+          </button>
+        </div>
+
+        <div class="context-note">
+          <span class="pulse-dot" aria-hidden="true"></span>
+          <p><strong>Modelo didático</strong><br />Os resultados mostram tendências e não substituem medições na máquina.</p>
+        </div>
+      </aside>
+
+      <section class="simulator-card" aria-label="Simulador 3D">
+        <div class="simulator-toolbar">
+          <div>
+            <span class="live-indicator"><i></i> Simulação pronta</span>
+            <strong id="toolbarTitle">Visão geral</strong>
+          </div>
+          <p>Arrasta para rodar · roda para ampliar · Shift para deslocar</p>
+        </div>
+        <iframe id="simulatorFrame" src="index.html" title="Simulador 3D de rotogravura"></iframe>
+        <div id="loading" class="loading-state">
+          <span class="loader"></span>
+          <p>A preparar o simulador</p>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="modern-ui.js"></script>
+</body>
+</html>
