@@ -15,24 +15,25 @@ body{background:radial-gradient(circle at 50% -20%,#172441 0,#090d16 45%,#070a11
 header{display:none!important}
 .wrap{height:100%!important}
 #stage{background:radial-gradient(circle at 50% 36%,rgba(44,71,115,.25),transparent 48%)!important}
-#panel,#clogPanel{width:370px!important;background:rgba(11,17,30,.92)!important;border-left:1px solid var(--line)!important;backdrop-filter:blur(22px)}
+#panel,#clogPanel{width:390px!important;background:rgba(11,17,30,.92)!important;border-left:1px solid var(--line)!important;backdrop-filter:blur(22px)}
 .sec{padding:20px!important;border-bottom:1px solid var(--line)!important}
 .sec h2{font-size:11px!important;letter-spacing:.11em!important;color:#b6c5dc!important;margin-bottom:16px!important}
 .ctrl{margin-bottom:20px!important}
 .ctrl .name{font-size:13px!important;font-weight:600!important}
 .ctrl .val{font-size:12px!important;font-weight:700!important}
-.desc,.note,.specs{font-size:11px!important;line-height:1.65!important}
+.desc,.note,.specs{font-size:12px!important;line-height:1.65!important}
 .xtra{font-size:11px!important}
 .speedval{font-size:38px!important;font-weight:700!important;letter-spacing:-.04em}
 input[type=range]{height:5px!important;background:linear-gradient(90deg,rgba(103,185,255,.6),rgba(137,120,255,.5))!important;border-radius:999px!important}
 input[type=range]::-webkit-slider-thumb{width:19px!important;height:19px!important;background:#fff!important;border:4px solid #67b9ff!important;box-shadow:0 5px 18px rgba(45,128,255,.35)!important}
-button.act,.views button,.pmRow button,.jobBtn{border-radius:11px!important;border-color:var(--line)!important;background:rgba(255,255,255,.045)!important;padding:10px 12px!important;text-transform:none!important;font-size:11px!important;letter-spacing:0!important}
+button.act,.views button,.pmRow button,.jobBtn{border-radius:11px!important;border-color:var(--line)!important;background:rgba(255,255,255,.045)!important;padding:10px 12px!important;text-transform:none!important;font-size:12px!important;letter-spacing:0!important;min-height:42px}
 button.act:hover,.views button:hover,.pmRow button:hover,.jobBtn:hover{background:rgba(103,185,255,.11)!important;border-color:rgba(103,185,255,.48)!important}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid rgba(103,185,255,.55)!important;outline-offset:2px!important}
 #camctl{top:16px!important;right:16px!important;padding:9px!important;border:1px solid var(--line)!important;border-radius:16px!important;background:rgba(8,12,21,.72)!important;backdrop-filter:blur(16px)}
-#camctl button{border-radius:10px!important;background:rgba(255,255,255,.05)!important}
-#camctl select{border-radius:10px!important;font-size:11px!important;padding:8px!important;background:#121a2b!important}
-#hud{top:18px!important;left:18px!important;padding:14px 16px!important;border:1px solid var(--line)!important;border-radius:15px!important;background:rgba(8,12,21,.72)!important;backdrop-filter:blur(16px)!important;font-size:11px!important}
-#status{border-radius:999px!important;padding:10px 18px!important;background:rgba(8,12,21,.82)!important;backdrop-filter:blur(16px)!important}
+#camctl button{border-radius:10px!important;background:rgba(255,255,255,.05)!important;min-width:44px!important;min-height:44px!important}
+#camctl select{border-radius:10px!important;font-size:12px!important;padding:8px!important;background:#121a2b!important;min-height:42px}
+#hud{top:18px!important;left:18px!important;padding:14px 16px!important;border:1px solid var(--line)!important;border-radius:15px!important;background:rgba(8,12,21,.72)!important;backdrop-filter:blur(16px)!important;font-size:12px!important}
+#status{border-radius:999px!important;padding:10px 18px!important;background:rgba(8,12,21,.82)!important;backdrop-filter:blur(16px)!important;font-size:13px!important}
 #regPanel{border-radius:16px!important;padding:11px!important;background:rgba(8,12,21,.84)!important;backdrop-filter:blur(18px)!important;box-shadow:0 18px 50px rgba(0,0,0,.3)!important}
 #menu{background:radial-gradient(circle at 50% 18%,#172643,#080c15 55%,#05070c)!important}
 #menu .menuBox{width:min(94vw,900px)!important}
@@ -43,21 +44,43 @@ button.act:hover,.views button:hover,.pmRow button:hover,.jobBtn:hover{backgroun
 #menu .menuBtn .ph{grid-row:1/3;display:grid;place-items:center;border-radius:14px;background:rgba(103,185,255,.09);font-size:12px!important;color:#67b9ff!important}
 #menu .menuBtn b{font-size:17px!important;color:#f2f6ff!important}
 #menu .menuBtn span:last-child{font-size:12px!important;line-height:1.5!important}
-.locking-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px}
-.locking-card{position:relative;display:flex;flex-direction:column;gap:4px;min-height:76px;padding:11px;border:1px solid var(--line);border-radius:13px;background:rgba(255,255,255,.035);cursor:pointer;text-align:left;transition:.18s ease}
+.range-input-row{display:flex;justify-content:flex-end;margin-top:9px}
+.range-number{width:92px;min-height:38px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.045);color:#eef4ff;padding:7px 10px;font:600 12px Inter,system-ui,sans-serif;text-align:right;font-variant-numeric:tabular-nums}
+.range-number:hover{border-color:rgba(103,185,255,.48)}
+.locking-cards{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:11px}
+.locking-card{position:relative;display:grid;grid-template-columns:34px 1fr;grid-template-rows:auto auto;gap:3px 9px;min-height:82px;padding:12px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.035);cursor:pointer;text-align:left;transition:.18s ease}
 .locking-card:hover{transform:translateY(-1px);border-color:rgba(103,185,255,.5);background:rgba(103,185,255,.08)}
-.locking-card.active{border-color:#67b9ff;background:linear-gradient(145deg,rgba(103,185,255,.16),rgba(137,120,255,.08));box-shadow:inset 0 0 0 1px rgba(103,185,255,.1)}
-.locking-card strong{font-size:11px;color:#f3f7ff}
+.locking-card.active{border-color:#67b9ff;background:linear-gradient(145deg,rgba(103,185,255,.16),rgba(137,120,255,.08));box-shadow:inset 0 0 0 1px rgba(103,185,255,.1),0 9px 24px rgba(0,0,0,.16)}
+.locking-card strong{font-size:11px;color:#f3f7ff;align-self:end}
 .locking-card small{font-size:9px;line-height:1.4;color:#93a2bb}
-.locking-card i{position:absolute;right:9px;top:9px;width:7px;height:7px;border-radius:50%;background:#53627c}
-.locking-card.active i{background:#57d6a1;box-shadow:0 0 10px rgba(87,214,161,.7)}
-.locking-summary{margin-top:10px;padding:11px;border-radius:12px;background:rgba(255,255,255,.025);border:1px solid var(--line);font-size:10px;line-height:1.55;color:#9eabc0}
-.locking-summary b{color:#eef4ff}
+.lock-icon{grid-row:1/3;align-self:center;width:30px;height:30px;border:1px solid rgba(146,177,213,.28);border-radius:9px;background:linear-gradient(145deg,#8997a7,#394554);position:relative!important;right:auto!important;top:auto!important;box-shadow:inset 0 0 0 5px rgba(8,12,21,.32)}
+.lock-icon::before,.lock-icon::after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+.lock-icon-0::before{width:13px;height:13px;border:4px solid #c8d2dd;border-radius:3px}
+.lock-icon-1::before,.lock-icon-1::after{width:12px;height:12px;border:3px solid #c8d2dd;border-radius:3px}
+.lock-icon-1::before{transform:translate(-62%,-50%)}
+.lock-icon-1::after{transform:translate(-38%,-50%)}
+.lock-icon-2::before,.lock-icon-2::after{width:17px;height:5px;border:2px solid #8fc4ed;border-radius:50%}
+.lock-icon-2::before{transform:translate(-50%,-78%) rotate(8deg)}
+.lock-icon-2::after{transform:translate(-50%,-20%) rotate(-8deg)}
+.lock-icon-3::before{width:16px;height:16px;border:3px solid #c8d2dd;border-radius:50%}
+.lock-icon-3::after{width:4px;height:13px;background:#e6c66a;transform:translate(4px,-13px) rotate(-35deg);border-radius:2px}
+.lock-icon-4::before{width:16px;height:16px;border:3px dashed #c8d2dd;border-radius:50%}
+.lock-icon-4::after{width:22px;height:3px;background:#e6b84b;border-radius:3px}
+.locking-card.active .lock-icon{border-color:#67b9ff;box-shadow:inset 0 0 0 5px rgba(8,12,21,.25),0 0 18px rgba(103,185,255,.22)}
+.locking-summary{margin-top:11px;padding:13px;border-radius:13px;background:rgba(255,255,255,.025);border:1px solid var(--line);font-size:11px;line-height:1.58;color:#9eabc0}
+.locking-summary b{display:inline-block;color:#eef4ff;font-size:12px;margin-right:8px}
+.locking-summary p{margin:8px 0 0}
+.locking-badge{display:inline-flex;padding:3px 7px;border:1px solid rgba(103,185,255,.28);border-radius:999px;color:#8dcbff;background:rgba(103,185,255,.07);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
 #lock{position:absolute!important;opacity:0!important;pointer-events:none!important;width:1px!important;height:1px!important}
+body.large-text .desc,body.large-text .note,body.large-text .specs{font-size:14px!important}
+body.large-text .ctrl .name{font-size:15px!important}
+body.large-text .locking-card strong{font-size:13px}
+body.large-text .locking-card small,body.large-text .locking-summary{font-size:12px}
 @media(max-width:820px){
-  #panel,#clogPanel{width:100%!important;max-height:48vh!important}
+  #panel,#clogPanel{width:100%!important;max-height:50vh!important}
   #menu .menuBox{padding:18px!important}
   #menu h1{font-size:25px!important}
   #menu .menuBtn{grid-template-columns:52px 1fr!important;padding:14px!important}
   .locking-cards{grid-template-columns:1fr!important}
+  .locking-card{min-height:74px}
 }
