@@ -3,18 +3,6 @@ const { test, expect } = require('@playwright/test');
 const MODEL_URL = '/src/simulations/junker-model.js';
 const CONFIG_URL = '/src/core/config.js';
 
-async function loadModel(page) {
-  return page.evaluate(async ({ modelUrl, configUrl }) => {
-    const model = await import(modelUrl);
-    const configModule = await import(configUrl);
-    return {
-      calculate: (state, drift = 0) => model.calculateJunkerState(state, drift, configModule.createLegacyConfigBridge()),
-      loosen: model.calculateLooseningRate,
-      damage: model.calculateHealthDamageRate
-    };
-  }, { modelUrl: MODEL_URL, configUrl: CONFIG_URL });
-}
-
 test('Junker model has zero instability for a stopped undamaged assembly', async ({ page }) => {
   await page.goto('/modern.html');
   const result = await page.evaluate(async ({ modelUrl, configUrl }) => {
