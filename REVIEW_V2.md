@@ -2,23 +2,25 @@
 
 ## Resultado geral
 
-A aplicação mantém o simulador original em `index.html` e acrescenta uma experiência moderna através de `modern.html`. Esta estratégia reduz o risco de regressão porque a cena, as animações e os modelos didáticos existentes continuam intactos.
+A aplicação passou de uma experiência visual aplicada sobre o simulador legado para uma entrada moderna com arranque próprio através de módulos ES. O núcleo histórico continua preservado em `index.html`, mas `modern.html` é agora a entrada recomendada e carrega o simulador através de `src/bootstrap.js` e `src/simulator-loader.js`.
+
+A versão moderna foi validada automaticamente em Chromium, sem erros JavaScript ou de consola, com Three.js r160 ativo.
 
 ## Alterações concluídas
 
 ### Interface
 
-- novo shell visual responsivo para computador, tablet e telemóvel;
-- navegação direta entre os três módulos;
-- painéis, cartões, botões, HUD, prova de impressão e controlos de câmara modernizados;
-- tipografia maior e hierarquia visual mais clara;
-- opção de texto ampliado e ecrã inteiro;
-- áreas de toque aumentadas e foco visível para teclado;
-- campos numéricos sincronizados com os sliders técnicos principais.
+- shell visual moderno e responsivo para computador, tablet e telemóvel;
+- navegação direta entre Montagem, Efeito Junker e Entupimento;
+- painéis, cartões, botões, HUD, prova de impressão e controlos de câmara redesenhados;
+- tipografia maior, melhor hierarquia visual e áreas de toque maiores;
+- texto ampliado, ecrã inteiro e foco visível para teclado;
+- campos numéricos sincronizados com os sliders técnicos principais;
+- aviso claro de que os valores apresentados são tendências de um modelo didático.
 
 ### Sistemas de travamento
 
-O antigo slider abstrato foi substituído por cinco cartões:
+O antigo seletor abstrato foi substituído por cinco opções visuais:
 
 1. sem travamento;
 2. contra-porca;
@@ -26,88 +28,108 @@ O antigo slider abstrato foi substituído por cinco cartões:
 4. anilha de patilha;
 5. porca castelo com cavilha.
 
-Foram corrigidas a terminologia e as resistências relativas do modelo. Cada opção passou a ter geometria Three.js própria:
+Foram corrigidas a terminologia e as resistências relativas do modelo. Cada opção passou a ter representação Three.js própria:
 
 - uma ou duas porcas conforme o sistema;
-- par de anilhas de cunha com elementos visuais opostos;
-- anilha e patilha dobrada;
-- coroa de porca castelo e cavilha transversal;
+- par de anilhas de cunha com elementos opostos;
+- anilha com patilha dobrada;
+- porca castelo e cavilha transversal;
 - pequenos movimentos sincronizados com o nível de desaperto.
+
+### Arquitetura
+
+A entrada moderna deixou de depender diretamente do carregamento antigo:
+
+- `src/bootstrap.js` coordena o arranque;
+- `src/simulator-loader.js` prepara o simulador dentro do iframe;
+- a interface moderna usa módulos ES;
+- Three.js foi atualizado de r128 para r160 na experiência moderna;
+- o simulador legado permanece preservado como fallback e fonte do conteúdo histórico.
+
+Esta solução reduz o risco de regressão e cria uma fronteira clara para futuras extrações do núcleo.
 
 ### Documentação
 
 - corrigida a confusão entre desenvolvimento de 420 mm e diâmetro;
 - esclarecido que 420 mm de desenvolvimento corresponde a Ø aproximado de 133,7 mm;
-- distinguido refugo físico, tempo de reajuste e perda de capacidade como conceitos pedagógicos;
-- reforçado que os valores absolutos são tendências, não medições estruturais.
+- distinguido refugo físico, tempo de reajuste e perda de capacidade;
+- reforçado que os valores absolutos não são medições estruturais da máquina;
+- mantida a massa como referência fixa, conforme a decisão do projeto;
+- não foram acrescentados custos em euros.
 
-### Verificação
+## Verificação funcional
 
-Foi acrescentado um teste Playwright que:
+O teste Playwright executado pelo workflow `Simulator smoke test` confirma:
 
-- abre `modern.html`;
-- vigia erros JavaScript e erros de consola;
-- confirma o carregamento do iframe;
-- percorre Montagem, Efeito Junker e Entupimento;
-- confirma os cinco cartões de travamento;
-- seleciona cada sistema e valida o valor aplicado;
-- confirma a instalação do módulo visual de travamento;
-- confirma a existência dos novos campos numéricos.
+- abertura de `modern.html`;
+- carregamento do simulador dentro do iframe;
+- ausência de erros JavaScript e erros de consola;
+- funcionamento dos três módulos;
+- existência e funcionamento dos cinco sistemas de travamento;
+- instalação das geometrias visuais de travamento;
+- funcionamento dos campos numéricos sincronizados;
+- `THREE.REVISION === "160"`.
 
-O workflow `.github/workflows/smoke-test.yml` executa este teste em Chromium no GitHub Actions.
+Resultado mais recente do GitHub Actions: **success**.
 
 ## Pontos ainda não resolvidos
 
-### 1. Ficheiro principal monolítico
+### 1. Núcleo histórico ainda monolítico
 
-O `index.html` continua a concentrar HTML, CSS, Three.js, simulação, interface e canvas 2D. A interface moderna reduz o problema visível, mas não substitui a refatoração arquitetural.
+O conteúdo interno de `index.html` continua a reunir HTML, CSS, criação Three.js, modelos de simulação, interface e previews 2D.
 
-Próxima alteração recomendada:
+Isto já não bloqueia o arranque moderno, mas continua a limitar alterações profundas. A extração seguinte deve ser progressiva:
 
-- extrair o modelo Junker;
-- extrair o modelo de entupimento;
-- extrair a criação da máquina;
-- extrair previews de impressão;
-- migrar gradualmente para módulos ES.
+- modelo Junker;
+- modelo de entupimento;
+- criação da máquina;
+- previews de impressão;
+- constantes e parâmetros didáticos.
 
-### 2. Three.js antigo
+Não recomendo dividir as 1600 linhas de uma só vez. O correto é extrair um subsistema de cada vez, com testes antes e depois.
 
-A aplicação base continua a usar Three.js r128 através de CDN. A migração para uma versão moderna deve ser feita num PR próprio porque pode alterar materiais, geometrias, cores e comportamento do renderer.
+### 2. Modelos físicos empíricos
 
-### 3. Modelos empíricos
+Os coeficientes de vibração, registo, refugo e resistência dos travamentos continuam a ser didáticos. A aplicação comunica agora melhor essa limitação, mas falta:
 
-As constantes de vibração, registo, refugo e resistência dos travamentos continuam a ser coeficientes didáticos. Estão agora descritas com maior honestidade, mas ainda devem ser extraídas para um ficheiro de configuração e, idealmente, calibradas com observações reais.
+- concentrar os coeficientes num ficheiro de configuração;
+- documentar a origem de cada valor;
+- calibrar com observações reais, quando existirem dados suficientes.
 
-### 4. Massa do cilindro
+### 3. Testes unitários
 
-Não foi transformada numa variável porque os cilindros considerados pelo projeto são equivalentes. Mantém-se uma referência fixa, conforme a decisão do proprietário do projeto.
+Existe validação de integração no browser, mas faltam testes unitários para:
 
-### 5. Custos em euros
+- evolução do desaperto;
+- monotonia da vibração com rpm e desgaste;
+- limites de refugo;
+- comportamento da cavilha e da patilha;
+- entupimento, retardador, viscosidade e lavagem.
 
-Não foram acrescentados porque não pertencem ao objetivo atual da aplicação.
-
-## Nova avaliação
+## Avaliação atualizada
 
 ### Finalidade e conteúdo técnico: 9/10
 
-O projeto continua muito forte por combinar conhecimento específico de rotogravura, mecânica, qualidade e formação.
+O projeto continua muito forte por combinar conhecimento real de rotogravura, mecânica, qualidade e formação numa ferramenta interativa pouco comum.
 
-### Experiência visual: 8/10
+### Experiência visual: 8,5/10
 
-A nova interface é claramente mais moderna e legível. Ainda pode melhorar com modelos 3D mais detalhados, transições de câmara específicas para cada travamento e ilustrações no menu inicial.
+A aplicação deixou de parecer um painel industrial antigo e passou a ter uma apresentação coerente com software técnico moderno. Ainda pode melhorar com transições de câmara próprias para cada travamento e modelos 3D mais detalhados.
 
-### Organização do código: 5/10
+### Organização do código: 6,5/10
 
-Melhorou através da separação da interface moderna, estilos, testes e documentação, mas o núcleo continua monolítico.
+A entrada moderna, os estilos, o carregador, os testes e a documentação estão separados. O núcleo histórico continua monolítico, pelo que a nota ainda não pode ser mais alta.
 
-### Fiabilidade: 7/10
+### Fiabilidade: 8/10
 
-Passa a existir uma verificação automática de carregamento e navegação. Faltam testes unitários dos cálculos físicos e de produção.
+A aplicação tem agora um teste real em Chromium, validação dos principais fluxos, vigilância de erros e confirmação da versão do Three.js.
 
-### Manutenção futura: 6/10
+### Manutenção futura: 7/10
 
-Já é possível evoluir a UI e os sistemas de travamento sem tocar diretamente na cena base. A manutenção só ficará realmente sólida após a separação do `index.html` em módulos.
+A fronteira entre experiência moderna e núcleo legado permite continuar a evoluir sem mexer em tudo ao mesmo tempo. A manutenção ficará sólida quando os modelos de simulação forem extraídos e cobertos por testes unitários.
 
-## Recomendação de integração
+## Conclusão
 
-Integrar apenas quando o workflow `Simulator smoke test` estiver verde. Manter o PR em rascunho enquanto a validação automática não terminar.
+A versão modernizada está funcional e validada. O PR pode avançar para integração do ponto de vista de interface, navegação, travamentos e carregamento moderno.
+
+A próxima fase já não deve ser mais redesign. Deve ser refatoração interna progressiva, começando pelo modelo Junker e pelos parâmetros físicos, sempre protegida por testes.
