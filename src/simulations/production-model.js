@@ -1,6 +1,8 @@
 export function createProductionAccumulator() {
   return {
     metersLost: 0,
+    scrapMeters: 0,
+    capacityLostMeters: 0,
     minLost: 0,
     events: 0,
     lastNutOk: true,
@@ -54,13 +56,17 @@ export function calculateProductionSnapshot(state, nutDrift, speedFactor, vibrat
     ? 0
     : wearPresent - wearFreePercent / 100;
   const blameTotal = correctiveWear + maintenanceBlame + operatorBlame;
-  const safeTotal = blameTotal > 0 ? blameTotal : 1;
 
-  const blame = {
-    wear: Math.round(correctiveWear / safeTotal * 100),
-    maintenance: Math.round(maintenanceBlame / safeTotal * 100),
-    operator: Math.round(operatorBlame / safeTotal * 100)
-  };
+  let blame = { wear: 0, maintenance: 0, operator: 0 };
+  if (blameTotal > 0) {
+    const wearPercent = Math.round(correctiveWear / blameTotal * 100);
+    const maintenancePercent = Math.round(maintenanceBlame / blameTotal * 100);
+    blame = {
+      wear: wearPercent,
+      maintenance: maintenancePercent,
+      operator: Math.max(0, 100 - wearPercent - maintenancePercent)
+    };
+  }
 
   return {
     currentSpeedMpm,
@@ -81,26 +87,32 @@ export function calculateProductionSnapshot(state, nutDrift, speedFactor, vibrat
 }
 
 export function advanceProductionAccumulator(accumulator, state, snapshot, deltaTime, config) {
-  const next = { ...accumulator };
+  const next = {
+    ...createProductionAccumulator(),
+    ...accumulator
+  };
   const dt = Math.max(0, Number(deltaTime) || 0);
 
   if (state.speed > 0 && !state.failed) {
     const metersThisFrame = snapshot.currentSpeedMpm / 60 * dt;
+    const scrapThisFrame = metersThisFrame * (snapshot.scrapPercent / 100);
     next.prodMeters += metersThisFrame;
-    next.metersLost += metersThisFrame * (snapshot.scrapPercent / 100);
+    next.scrapMeters += scrapThisFrame;
 
     const nutNowLoose = snapshot.nutEffectivePercent > 55;
     if (nutNowLoose && next.lastNutOk) {
       next.events += 1;
       next.minLost += config.readjustmentMinutes;
-      next.metersLost += snapshot.currentSpeedMpm * config.readjustmentMinutes;
+      next.capacityLostMeters += snapshot.currentSpeedMpm * config.readjustmentMinutes;
       next.lastNutOk = false;
     }
 
     if (snapshot.nutEffectivePercent < 40) next.lastNutOk = true;
   }
 
-  next.metersLost = Math.max(0, next.metersLost);
+  next.scrapMeters = Math.max(0, next.scrapMeters);
+  next.capacityLostMeters = Math.max(0, next.capacityLostMeters);
+  next.metersLost = next.scrapMeters + next.capacityLostMeters;
   next.minLost = Math.max(0, next.minLost);
   next.events = Math.max(0, Math.round(next.events));
   next.prodMeters = Math.max(0, next.prodMeters);
