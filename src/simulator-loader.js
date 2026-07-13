@@ -9,6 +9,7 @@ const CONFIG_REPLACEMENTS = [
   ["const lockNames=['nenhum','contra-porca','anilha freio','patilha dobrável','cavilha'];", 'const lockNames=window.__ROTOSIM_CONFIG__.lockNames;'],
   ["const lockDescs=['Sem travamento — só aperto por atrito. Vibração desaperta com facilidade.','Segunda porca apertada contra a primeira. Trava por atrito — simples e eficaz.','Anilha de pressão/serrilhada (tipo Nord-Lock). Boa resistência à vibração.','Anilha com patilha dobrada sobre a porca. Travamento mecânico positivo.','Furo + cavilha atravessada. Não depende de atrito — não solta.'];", 'const lockDescs=window.__ROTOSIM_CONFIG__.lockDescriptions;'],
   ['const lockResist=[0,0.55,0.75,0.9,0.98];', 'const lockResist=window.__ROTOSIM_CONFIG__.lockResistance;'],
+  ['const sp=S.speed/600, diaF=(S.dia-300)/500;', 'const sp=S.speed/window.__ROTOSIM_CONFIG__.maxReferenceRpm, diaF=(S.dia-300)/500;'],
   ['const WEAR_FREE=33;', 'const WEAR_FREE=window.__ROTOSIM_CONFIG__.wearFreePercent;'],
   ['const SPD_MIN=80, SPD_MAX=140, SPD_POT=300;', 'const SPD_MIN=window.__ROTOSIM_CONFIG__.speedMinMpm, SPD_MAX=window.__ROTOSIM_CONFIG__.speedMaxMpm, SPD_POT=window.__ROTOSIM_CONFIG__.speedPotentialMpm;'],
   ['const REG_TOL=80;', 'const REG_TOL=window.__ROTOSIM_CONFIG__.registrationToleranceUm;'],
