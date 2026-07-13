@@ -104,9 +104,117 @@ export function installLockingSystemExperience(doc) {
         let previousLock = Number(S.lock);
         let active = true;
         let animationFrame = 0;
+        let orbitFrame = 0;
+        let orbitToken = 0;
+        let pinchDistance = 0;
+
+        function lockingTarget() {
+          const target = new THREE.Vector3();
+          nutA.getWorldPosition(target);
+          return target;
+        }
+
+        function stopOrbit() {
+          orbitToken += 1;
+          if (orbitFrame) cancelAnimationFrame(orbitFrame);
+          orbitFrame = 0;
+        }
+
+        function zoomBy(delta) {
+          camGoal = null;
+          camRad = Math.max(3.4, Math.min(80, camRad + delta));
+        }
 
         function focusLockingArea() {
-          if (typeof camFocusGo === 'function') camFocusGo('anilhas');
+          const target = lockingTarget();
+          camGoal = {
+            t: camTheta,
+            p: 1.28,
+            r: 7.2,
+            tx: target.x,
+            ty: target.y,
+            tz: target.z
+          };
+        }
+
+        function orbitLockingArea() {
+          stopOrbit();
+          const token = orbitToken;
+          const target = lockingTarget();
+          const startTheta = camTheta;
+          const start = performance.now();
+          const duration = 2600;
+          camGoal = null;
+          camTarget.copy(target);
+          camPhi = 1.28;
+          camRad = 7.2;
+          root.userData.orbiting = true;
+
+          function tick(now) {
+            if (!active || token !== orbitToken) return;
+            const progress = Math.min(1, (now - start) / duration);
+            const eased = progress < 0.5
+              ? 2 * progress * progress
+              : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+            camTarget.lerp(target, 0.18);
+            camTheta = startTheta + eased * Math.PI * 1.55;
+            camPhi = 1.18 + Math.sin(progress * Math.PI) * 0.18;
+            camRad = 7.2 - Math.sin(progress * Math.PI) * 0.8;
+            root.userData.orbitProgress = progress;
+            updateCam();
+            if (progress < 1) orbitFrame = requestAnimationFrame(tick);
+            else {
+              root.userData.orbiting = false;
+              orbitFrame = 0;
+            }
+          }
+          orbitFrame = requestAnimationFrame(tick);
+        }
+
+        function installZoomControls() {
+          if (document.getElementById('lockingZoomControls')) return;
+          const controls = document.createElement('div');
+          controls.id = 'lockingZoomControls';
+          controls.setAttribute('aria-label', 'Zoom do simulador');
+          controls.innerHTML = '<button type="button" data-zoom="in" aria-label="Aproximar">＋</button><button type="button" data-zoom="out" aria-label="Afastar">−</button><button type="button" data-zoom="focus" aria-label="Focar travamento">◎</button>';
+          const style = document.createElement('style');
+          style.id = 'lockingZoomStyle';
+          style.textContent = '#lockingZoomControls{position:fixed;left:14px;top:14px;z-index:75;display:flex;gap:8px;padding:7px;border-radius:15px;background:rgba(7,12,21,.76);border:1px solid rgba(150,175,210,.25);backdrop-filter:blur(14px)}#lockingZoomControls button{width:44px;height:44px;border:1px solid rgba(150,175,210,.25);border-radius:11px;background:rgba(255,255,255,.08);color:#fff;font:700 22px system-ui;cursor:pointer;touch-action:manipulation}#lockingZoomControls button:active{transform:scale(.96);background:rgba(103,185,255,.24)}';
+          document.head.appendChild(style);
+          document.body.appendChild(controls);
+          controls.addEventListener('click', (event) => {
+            const action = event.target.closest('button')?.dataset.zoom;
+            stopOrbit();
+            if (action === 'in') zoomBy(-1.2);
+            if (action === 'out') zoomBy(1.2);
+            if (action === 'focus') focusLockingArea();
+          });
+        }
+
+        function installPinchZoom() {
+          const canvas = renderer.domElement;
+          canvas.addEventListener('touchstart', (event) => {
+            if (event.touches.length === 2) {
+              stopOrbit();
+              pinchDistance = Math.hypot(
+                event.touches[0].clientX - event.touches[1].clientX,
+                event.touches[0].clientY - event.touches[1].clientY
+              );
+            }
+          }, { passive: false });
+          canvas.addEventListener('touchmove', (event) => {
+            if (event.touches.length !== 2 || !pinchDistance) return;
+            event.preventDefault();
+            const next = Math.hypot(
+              event.touches[0].clientX - event.touches[1].clientX,
+              event.touches[0].clientY - event.touches[1].clientY
+            );
+            zoomBy((pinchDistance - next) * 0.025);
+            pinchDistance = next;
+          }, { passive: false });
+          canvas.addEventListener('touchend', () => { pinchDistance = 0; }, { passive: true });
+          canvas.addEventListener('pointerdown', stopOrbit, { passive: true });
+          canvas.addEventListener('wheel', stopOrbit, { passive: true });
         }
 
         function setVisibility(lock) {
@@ -127,6 +235,9 @@ export function installLockingSystemExperience(doc) {
             selected = lock;
             transition = 0;
             focusLockingArea();
+            window.setTimeout(() => {
+              if (active && Number(S.lock) === lock) orbitLockingArea();
+            }, 420);
           }
           transition = Math.min(1, transition + 0.045);
           setVisibility(lock);
@@ -156,11 +267,16 @@ export function installLockingSystemExperience(doc) {
 
         function dispose() {
           active = false;
+          stopOrbit();
           if (animationFrame) cancelAnimationFrame(animationFrame);
+          document.getElementById('lockingZoomControls')?.remove();
+          document.getElementById('lockingZoomStyle')?.remove();
           disposeObject(root);
         }
 
-        window.__ROTOSIM_LOCKING_VISUALS__ = { root, dispose, focus: focusLockingArea };
+        installZoomControls();
+        installPinchZoom();
+        window.__ROTOSIM_LOCKING_VISUALS__ = { root, dispose, focus: focusLockingArea, orbit: orbitLockingArea, zoomBy };
         update();
       } catch (error) {
         console.error('Falha no módulo de travamento.', error);
