@@ -1,6 +1,12 @@
 import { createSimulatorState, validateSimulatorState } from './core/state.js';
 import { createLegacyConfigBridge } from './core/config.js';
 import { calculateJunkerState, calculateLooseningRate, calculateHealthDamageRate } from './simulations/junker-model.js';
+import {
+  createProductionAccumulator,
+  calculateProductionSnapshot,
+  advanceProductionAccumulator,
+  buildProductionVerdict
+} from './simulations/production-model.js';
 
 const LEGACY_STATE_DECLARATION = 'const S={speed:0,keyIn:0,keyOut:0,slot:0,tab:0,seat:0,nut:0,bal:0,lock:0,dia:420,health:100,failed:false};';
 const MODULAR_STATE_DECLARATION = 'const S=window.__ROTOSIM_STATE__;';
@@ -47,6 +53,59 @@ function connectJunkerModel(source) {
   return replaceRequired(source, legacyDamage, modularDamage, 'dano mecânico Junker');
 }
 
+function connectProductionModel(source) {
+  source = replaceRequired(
+    source,
+    'let acc={metersLost:0, minLost:0, events:0, lastNutOk:true, prodMeters:0};',
+    'let acc=window.__ROTOSIM_PRODUCTION__.createProductionAccumulator();',
+    'acumulador de produção'
+  );
+  source = replaceRequired(
+    source,
+    "A.btnZero.addEventListener('click',()=>{acc={metersLost:0,minLost:0,events:0,lastNutOk:true,prodMeters:0};});",
+    "A.btnZero.addEventListener('click',()=>{acc=window.__ROTOSIM_PRODUCTION__.createProductionAccumulator();});",
+    'reset do acumulador de produção'
+  );
+
+  const productionPattern = /function updateAnalysis\(sp, vib, dt\)\{[\s\S]*?\n\}\n\n\/\/ ---- Colour proof/;
+  if (!productionPattern.test(source)) throw new Error('Não foi possível extrair updateAnalysis.');
+
+  const replacement = `function updateAnalysis(sp, vib, dt){
+  const snapshot=window.__ROTOSIM_PRODUCTION__.calculateProductionSnapshot(S,nutDrift,sp,vib,jobTol(),window.__ROTOSIM_CONFIG__);
+  acc=window.__ROTOSIM_PRODUCTION__.advanceProductionAccumulator(acc,S,snapshot,dt,window.__ROTOSIM_CONFIG__);
+
+  A.spdVal.textContent=snapshot.currentSpeedMpm+' / '+snapshot.potentialSpeedMpm+' m/min';
+  A.spdBar.style.width=Math.round(snapshot.currentSpeedMpm/snapshot.potentialSpeedMpm*100)+'%';
+  A.spdBar.style.background=snapshot.currentSpeedMpm>=120?'#46d39a':snapshot.currentSpeedMpm>=100?'#ffb13f':'#ff5252';
+  A.spdNote.textContent=S.speed===0?'Parada.':(snapshot.instability>0.4?'Instabilidade obriga a abrandar — capacidade perdida.':'A produzir perto do máximo possível desta máquina.');
+
+  A.regVal.textContent=snapshot.registrationErrorUm+' µm';
+  A.regVal.style.color=snapshot.effectiveRegistrationErrorUm>REG_TOL?'#ff5252':snapshot.effectiveRegistrationErrorUm>REG_TOL*0.6?'#ffb13f':'#cdd8e4';
+  A.splVal.textContent=snapshot.splashPercent+' %';
+  A.splVal.style.color=snapshot.splashPercent>25?'#ff5252':snapshot.splashPercent>12?'#ffb13f':'#cdd8e4';
+  A.scrapVal.textContent=snapshot.scrapPercent+' %';
+  A.scrapVal.style.color=snapshot.scrapPercent>20?'#ff5252':snapshot.scrapPercent>8?'#ffb13f':'#cdd8e4';
+  A.clientVal.textContent=snapshot.rejected?'REJEITA':'OK';
+  A.clientVal.style.color=snapshot.rejected?'#ff5252':'#46d39a';
+
+  A.mLost.textContent=fmtNum(acc.metersLost)+' m';
+  A.tLost.textContent=Math.round(acc.minLost)+' min';
+  A.nEvents.textContent=acc.events+'×';
+  A.bWear.style.width=snapshot.blame.wear+'%';
+  A.bMaint.style.width=snapshot.blame.maintenance+'%';
+  A.bOper.style.width=snapshot.blame.operator+'%';
+  A.pctWear.textContent=snapshot.blame.wear+'%';
+  A.pctMaint.textContent=snapshot.blame.maintenance+'%';
+  A.pctOper.textContent=snapshot.blame.operator+'%';
+  A.verdict.innerHTML=window.__ROTOSIM_PRODUCTION__.buildProductionVerdict(S,nutDrift,snapshot,acc,window.__ROTOSIM_CONFIG__);
+  drawRegistration(snapshot.registrationErrorUm,sp,vib);
+}
+
+// ---- Colour proof`;
+
+  return source.replace(productionPattern, replacement);
+}
+
 export async function loadSimulator(frame) {
   const response = await fetch('index.html', { cache: 'no-store' });
   if (!response.ok) throw new Error(`Não foi possível carregar index.html (${response.status})`);
@@ -60,6 +119,7 @@ export async function loadSimulator(frame) {
   html = replaceRequired(html, LEGACY_STATE_DECLARATION, MODULAR_STATE_DECLARATION, 'estado global');
   for (const [expected, replacement] of CONFIG_REPLACEMENTS) html = replaceRequired(html, expected, replacement, expected.slice(0, 48));
   html = connectJunkerModel(html);
+  html = connectProductionModel(html);
   html = html.replace('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', 'https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.min.js');
 
   const junkerBridge = `{
@@ -67,6 +127,13 @@ export async function loadSimulator(frame) {
     calculateLooseningRate:${calculateLooseningRate.toString()},
     calculateHealthDamageRate:${calculateHealthDamageRate.toString()}
   }`;
-  html = html.replace('<head>', `<head><base href="./"><script>window.__ROTOSIM_STATE__=${JSON.stringify(state)};window.__ROTOSIM_CONFIG__=${JSON.stringify(config)};window.__ROTOSIM_JUNKER__=${junkerBridge};<\/script>`);
+  const productionBridge = `{
+    createProductionAccumulator:${createProductionAccumulator.toString()},
+    calculateProductionSnapshot:${calculateProductionSnapshot.toString()},
+    advanceProductionAccumulator:${advanceProductionAccumulator.toString()},
+    buildProductionVerdict:${buildProductionVerdict.toString()}
+  }`;
+
+  html = html.replace('<head>', `<head><base href="./"><script>window.__ROTOSIM_STATE__=${JSON.stringify(state)};window.__ROTOSIM_CONFIG__=${JSON.stringify(config)};window.__ROTOSIM_JUNKER__=${junkerBridge};window.__ROTOSIM_PRODUCTION__=${productionBridge};<\/script>`);
   frame.srcdoc = html;
 }
