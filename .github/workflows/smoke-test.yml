@@ -1,4 +1,4 @@
-name: Simulator smoke test
+name: Simulator test suite
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ on:
       - agent/modern-ui-locking-systems
 
 jobs:
-  browser-smoke:
+  browser-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -24,8 +24,8 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Run browser smoke test
-        run: npm run test:smoke
+      - name: Run simulator tests
+        run: npm test
 
       - name: Upload Playwright report
         if: failure()
