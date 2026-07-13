@@ -4,7 +4,7 @@ Este ficheiro acompanha o trabalho realizado no PR #29. Uma tarefa só recebe vi
 
 ## Fase A — Arquitetura
 
-- [ ] Extrair estado global para `src/core/state.js`
+- [x] Extrair estado global para `src/core/state.js`
 - [ ] Extrair constantes e parâmetros para `src/core/config.js`
 - [ ] Extrair modelo do efeito Junker
 - [ ] Extrair cálculo de produção e qualidade
@@ -17,7 +17,7 @@ Este ficheiro acompanha o trabalho realizado no PR #29. Uma tarefa só recebe vi
 
 ## Fase B — Testes e robustez
 
-- [ ] Criar testes unitários do estado
+- [x] Criar testes unitários do estado
 - [ ] Criar testes unitários do modelo Junker
 - [ ] Testar limites e invariantes de produção
 - [ ] Criar testes unitários do entupimento
@@ -50,3 +50,14 @@ Este ficheiro acompanha o trabalho realizado no PR #29. Uma tarefa só recebe vi
 - [ ] Fazer review final
 - [ ] Marcar PR pronto para review
 - [ ] Integrar na `main`
+
+## Registo de review
+
+### Tarefa 1 — Estado global
+
+- Implementado em `src/core/state.js`.
+- A versão moderna substitui a declaração antiga durante o carregamento e usa o estado criado pelo módulo.
+- Adicionadas validação, criação com overrides e reposição segura dos valores por defeito.
+- A review encontrou os testes de estado misturados no smoke test; foram separados para `tests/state.spec.js`.
+- O workflow passou a executar toda a suite com `npm test`.
+- Resultado final do GitHub Actions: **success**.
