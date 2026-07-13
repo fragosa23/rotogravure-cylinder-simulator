@@ -1,0 +1,5 @@
+.home-screen{position:relative;z-index:12;background:var(--bg-gradient)}
+.workspace{grid-row:2}
+.home-active .workspace{position:relative;inset:auto;opacity:1;visibility:visible;pointer-events:none}
+body:not(.home-active) .workspace{pointer-events:auto}
+@media(max-width:820px){.home-screen{grid-row:2;min-height:calc(100svh - 124px)}.workspace{grid-row:2}.home-active .workspace{position:absolute;inset:124px 0 auto}}
