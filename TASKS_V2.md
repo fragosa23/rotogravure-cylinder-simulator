@@ -8,7 +8,7 @@ Este ficheiro acompanha o trabalho realizado no PR #29. Uma tarefa só recebe vi
 - [x] Extrair constantes e parâmetros para `src/core/config.js`
 - [x] Extrair modelo do efeito Junker
 - [x] Extrair cálculo de produção e qualidade
-- [ ] Extrair modelo de entupimento
+- [x] Extrair modelo de entupimento
 - [ ] Extrair sistema de travamento e geometrias
 - [ ] Extrair construção da máquina 3D
 - [ ] Extrair previews e canvas 2D
@@ -20,7 +20,7 @@ Este ficheiro acompanha o trabalho realizado no PR #29. Uma tarefa só recebe vi
 - [x] Criar testes unitários do estado
 - [x] Criar testes unitários do modelo Junker
 - [x] Testar limites e invariantes de produção
-- [ ] Criar testes unitários do entupimento
+- [x] Criar testes unitários do entupimento
 - [ ] Testar libertação de memória Three.js
 - [ ] Criar testes visuais para computador e telemóvel
 
@@ -68,28 +68,29 @@ Este ficheiro acompanha o trabalho realizado no PR #29. Uma tarefa só recebe vi
 - Centralizados limites do estado, parâmetros mecânicos, parâmetros de produção e os cinco sistemas de travamento.
 - A versão moderna injeta uma ponte de configuração no simulador legado e substitui os valores esperados durante o carregamento.
 - Adicionados testes próprios em `tests/config.spec.js` para o módulo e para a ligação real ao iframe.
-- A primeira review encontrou `maxReferenceRpm` definido mas ainda não usado pela normalização da velocidade; a fórmula foi corrigida para consumir o valor modular.
-- A segunda review não encontrou constantes explícitas desconectadas dentro do âmbito desta tarefa.
+- A primeira review encontrou `maxReferenceRpm` definido mas ainda não usado pela normalização da velocidade; a fórmula foi corrigida.
 - Resultado final do GitHub Actions: **success**.
 
 ### Tarefa 3 — Modelo do efeito Junker
 
 - Implementado em `src/simulations/junker-model.js`.
 - Extraídos cálculo de excentricidade e vibração, taxa de desaperto e taxa de dano mecânico.
-- A versão moderna substitui a função `instability()` e os blocos de desaperto e dano durante o carregamento.
-- Adicionados testes para máquina parada, aumento de vibração com desgaste, ordem de resistência dos travamentos, tolerância de dano e ligação ao simulador real.
-- A primeira review confirmou o funcionamento, mas encontrou um helper de teste não utilizado; foi removido.
-- A segunda execução da suite passou integralmente em Chromium.
+- Adicionados testes para máquina parada, aumento de vibração com desgaste, ordem de resistência dos travamentos e tolerância de dano.
+- A review encontrou um helper de teste não utilizado; foi removido.
 - Resultado final do GitHub Actions: **success**.
 
 ### Tarefa 4 — Produção e qualidade
 
 - Implementado em `src/simulations/production-model.js`.
 - Extraídos velocidade efetiva, erro de registo, manchas, refugo, rejeição, responsabilidade e acumulação de perdas.
-- A versão moderna substitui `updateAnalysis()` por uma camada de apresentação alimentada pelo novo modelo.
-- Adicionados testes para limites de 0–100%, tolerância de trabalho, rejeição, ordem das perdas e ligação ao simulador real.
-- A primeira review encontrou a mistura entre refugo físico e capacidade não produzida; o acumulador passou a separar `scrapMeters` e `capacityLostMeters`.
-- A segunda review encontrou percentagens de responsabilidade que podiam somar 99% ou 101%; foram normalizadas para 100% quando existem causas.
-- A terceira review encontrou uma dependência interna insegura na função serializada para o iframe; a função foi tornada autónoma.
-- A suite completa voltou a passar em Chromium.
+- A review separou refugo físico de capacidade não produzida, normalizou as percentagens para 100% e tornou a ponte serializada autónoma.
+- Resultado final do GitHub Actions: **success**.
+
+### Tarefa 5 — Entupimento dos alvéolos
+
+- Implementado em `src/simulations/clogging-model.js`.
+- Extraídos secagem, evolução do entupimento, efeito da velocidade, sujidade, pressão, ângulo, vai-vem, véu, riscos, refugo e qualidade.
+- Paragem com tinta e lavagem passaram a usar funções puras e limitadas a 0–100%.
+- Criados testes para parâmetros standard, química deficiente, sujidade, baixa velocidade, pressão, ângulo, vai-vem, paragem, lavagem e limites.
+- A review confirmou que as funções com dependências internas são injetadas numa closure segura no iframe.
 - Resultado final do GitHub Actions: **success**.
