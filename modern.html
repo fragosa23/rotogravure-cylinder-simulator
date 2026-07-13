@@ -14,13 +14,11 @@
         <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
         <span><strong>ObaniA LAB</strong><small>Formação técnica interativa</small></span>
       </a>
-
       <nav class="phase-nav" aria-label="Módulos do simulador">
         <button type="button" data-phase="assembly"><span>01</span> Montagem</button>
         <button type="button" data-phase="machine"><span>02</span> Junker</button>
         <button type="button" data-phase="clog"><span>03</span> Entupimento</button>
       </nav>
-
       <div class="top-actions">
         <button id="largeText" type="button" class="icon-button" aria-pressed="false" title="Aumentar texto">Aa</button>
         <button id="themeToggle" type="button" class="icon-button" aria-pressed="false" title="Mudar para modo claro" aria-label="Mudar para modo claro">☀</button>
@@ -29,12 +27,7 @@
     </header>
 
     <section id="homeScreen" class="home-screen" aria-label="Página inicial">
-      <div class="home-orbit" aria-hidden="true">
-        <span class="orbit orbit-a"></span>
-        <span class="orbit orbit-b"></span>
-        <span class="orbit orbit-c"></span>
-        <span class="home-core">O</span>
-      </div>
+      <div class="home-orbit" aria-hidden="true"><span class="orbit orbit-a"></span><span class="orbit orbit-b"></span><span class="orbit orbit-c"></span><span class="home-core">O</span></div>
       <p class="home-kicker">OBANIA LAB</p>
       <h1>O laboratório para formação e experiências.</h1>
       <p class="home-copy">Simulador do dia a dia de uma máquina de rotogravura.</p>
@@ -47,33 +40,19 @@
 
     <section class="workspace" aria-hidden="true">
       <section class="viewer-card" aria-label="Simulador 3D">
-        <div class="viewer-head">
-          <div><span class="live-indicator"><i></i> Simulação ativa</span><strong id="liveSummary">Simulação pronta</strong></div>
-          <p>Arrasta para rodar · aproxima com dois dedos</p>
-        </div>
+        <div class="viewer-head"><div><span class="live-indicator"><i></i> Simulação ativa</span><strong id="liveSummary">Simulação pronta</strong></div><p>Arrasta para rodar · aproxima com dois dedos</p></div>
         <iframe id="simulatorFrame" title="Simulador 3D de rotogravura"></iframe>
         <div id="loading" class="loading-state"><span class="loader"></span><p>A preparar o simulador</p></div>
       </section>
-
       <aside class="control-panel" aria-label="Controlos da simulação">
-        <div class="dock-heading">
-          <p class="eyebrow">Fenómeno ativo</p>
-          <h1 id="dockTitle">Escolhe uma simulação</h1>
-          <p id="dockSubtitle">Seleciona um módulo no menu superior ou na página inicial.</p>
-        </div>
-
+        <div class="dock-heading"><p class="eyebrow">Fenómeno ativo</p><h1 id="dockTitle">Escolhe uma simulação</h1><p id="dockSubtitle">Seleciona um módulo no menu superior ou na página inicial.</p></div>
         <div id="controlDock" class="control-dock"></div>
-
-        <section class="explanation-card" aria-live="polite">
-          <div class="explanation-head"><span>Explicação</span><button id="whyButton" type="button">O que aconteceu?</button></div>
-          <p id="causeExplanation">A explicação aparece quando iniciares uma experiência.</p>
-        </section>
-
+        <section class="explanation-card" aria-live="polite"><div class="explanation-head"><span>Explicação</span><button id="whyButton" type="button">O que aconteceu?</button></div><p id="causeExplanation">A explicação aparece quando iniciares uma experiência.</p></section>
         <button id="advancedToggle" type="button" class="advanced-button" aria-pressed="false">Parâmetros avançados</button>
       </aside>
     </section>
+    <div hidden aria-hidden="true"><span id="moduleTitle"></span><span id="moduleDescription"></span><span id="toolbarTitle"></span></div>
   </main>
-
   <script type="module" src="src/bootstrap.js"></script>
 </body>
 </html>
