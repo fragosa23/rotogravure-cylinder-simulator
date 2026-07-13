@@ -1,5 +1,6 @@
 import { loadSimulator } from './simulator-loader.js';
 import { installLockingSystemExperience } from './machine/locking-system.js';
+import { installTrainingExperience } from './training/training-experience.js';
 
 const frame = document.getElementById('simulatorFrame');
 const loading = document.getElementById('loading');
@@ -23,6 +24,7 @@ try {
   await frameLoaded;
   await uiReady;
   installLockingSystemExperience(frame.contentDocument);
+  installTrainingExperience(frame.contentDocument);
 } catch (error) {
   loading.classList.add('error');
   loading.innerHTML = `<p>Não foi possível iniciar o simulador.</p><small>${error.message}</small>`;
