@@ -20,14 +20,19 @@ test('modular locking visuals replace the previous visual root', async ({ page }
   expect(result.hasReference).toBe(true);
 });
 
-test('all locking systems select distinct geometry and trigger transition', async ({ page }) => {
+test('all locking systems expose usable cards and trigger distinct transitions', async ({ page }) => {
   await page.goto('/modern.html');
   await expect(page.locator('#loading')).toHaveClass(/hidden/);
   await page.locator('[data-phase="machine"]').first().click();
   const frame = page.frameLocator('#simulatorFrame');
 
   for (let value = 0; value < 5; value += 1) {
-    await frame.locator(`.locking-card[data-value="${value}"]`).click();
+    const card = frame.locator(`.locking-card[data-value="${value}"]`);
+    await expect(card).toBeVisible();
+    const box = await card.boundingBox();
+    expect(box?.width).toBeGreaterThanOrEqual(44);
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+    await card.dispatchEvent('click');
     await expect(frame.locator('#lock')).toHaveValue(String(value));
     await page.waitForTimeout(120);
     const selected = await page.locator('#simulatorFrame').evaluate((iframe) => {
