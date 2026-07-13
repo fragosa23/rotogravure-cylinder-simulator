@@ -145,12 +145,26 @@ export function installContextualControls(frame) {
 
   let currentPhase = 'machine';
 
+  function updateOuterNavigation(phase) {
+    document.querySelectorAll('[data-phase]').forEach((button) => {
+      button.classList.toggle('active', button.dataset.phase === phase);
+      button.setAttribute('aria-current', button.dataset.phase === phase ? 'page' : 'false');
+    });
+
+    if (advancedButton) {
+      advancedButton.hidden = phase === 'assembly';
+      advancedButton.setAttribute('aria-pressed', 'false');
+      advancedButton.textContent = 'Parâmetros avançados';
+    }
+  }
+
   function render(phase) {
     const frameDoc = getFrameDocument(frame);
     const config = PHASES[phase];
     if (!frameDoc || !config) return;
     currentPhase = phase;
     installLegacyMinimalMode(frameDoc);
+    updateOuterNavigation(phase);
     host.replaceChildren();
     title.textContent = config.title;
     subtitle.textContent = config.subtitle;
@@ -170,9 +184,25 @@ export function installContextualControls(frame) {
     }
   }
 
-  document.querySelectorAll('[data-phase]').forEach((button) => button.addEventListener('click', () => {
-    window.setTimeout(() => render(button.dataset.phase), 120);
-  }));
+  function bindEmbeddedNavigation() {
+    const frameDoc = getFrameDocument(frame);
+    if (!frameDoc || frameDoc.documentElement.dataset.outerNavigationBound === 'true') return;
+    frameDoc.documentElement.dataset.outerNavigationBound = 'true';
+
+    frameDoc.querySelectorAll('#menu .menuBtn[data-phase]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const phase = button.dataset.phase;
+        window.setTimeout(() => render(phase), 0);
+      });
+    });
+  }
+
+  document.querySelectorAll('[data-phase]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const phase = button.dataset.phase;
+      window.setTimeout(() => render(phase), 120);
+    });
+  });
 
   advancedButton?.addEventListener('click', () => {
     const frameDoc = getFrameDocument(frame);
@@ -209,15 +239,6 @@ export function installContextualControls(frame) {
     }
   });
 
-  document.querySelectorAll('[data-phase]').forEach((button) => {
-    button.addEventListener('click', () => {
-      if (advancedButton) {
-        advancedButton.hidden = button.dataset.phase === 'assembly';
-        advancedButton.setAttribute('aria-pressed', 'false');
-        advancedButton.textContent = 'Parâmetros avançados';
-      }
-    });
-  });
-
+  bindEmbeddedNavigation();
   render('machine');
 }
