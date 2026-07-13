@@ -6,7 +6,7 @@ Este ficheiro acompanha o trabalho realizado no PR #29. Uma tarefa só recebe vi
 
 - [x] Extrair estado global para `src/core/state.js`
 - [x] Extrair constantes e parâmetros para `src/core/config.js`
-- [ ] Extrair modelo do efeito Junker
+- [x] Extrair modelo do efeito Junker
 - [ ] Extrair cálculo de produção e qualidade
 - [ ] Extrair modelo de entupimento
 - [ ] Extrair sistema de travamento e geometrias
@@ -18,7 +18,7 @@ Este ficheiro acompanha o trabalho realizado no PR #29. Uma tarefa só recebe vi
 ## Fase B — Testes e robustez
 
 - [x] Criar testes unitários do estado
-- [ ] Criar testes unitários do modelo Junker
+- [x] Criar testes unitários do modelo Junker
 - [ ] Testar limites e invariantes de produção
 - [ ] Criar testes unitários do entupimento
 - [ ] Testar libertação de memória Three.js
@@ -69,5 +69,15 @@ Este ficheiro acompanha o trabalho realizado no PR #29. Uma tarefa só recebe vi
 - A versão moderna injeta uma ponte de configuração no simulador legado e substitui os valores esperados durante o carregamento.
 - Adicionados testes próprios em `tests/config.spec.js` para o módulo e para a ligação real ao iframe.
 - A primeira review encontrou `maxReferenceRpm` definido mas ainda não usado pela normalização da velocidade; a fórmula foi corrigida para consumir o valor modular.
-- A segunda review não encontrou constantes explícitas desconectadas dentro do âmbito desta tarefa. Os coeficientes internos do efeito Junker serão tratados durante a extração do respetivo modelo.
+- A segunda review não encontrou constantes explícitas desconectadas dentro do âmbito desta tarefa.
+- Resultado final do GitHub Actions: **success**.
+
+### Tarefa 3 — Modelo do efeito Junker
+
+- Implementado em `src/simulations/junker-model.js`.
+- Extraídos cálculo de excentricidade e vibração, taxa de desaperto e taxa de dano mecânico.
+- A versão moderna substitui a função `instability()` e os blocos de desaperto e dano durante o carregamento.
+- Adicionados testes para máquina parada, aumento de vibração com desgaste, ordem de resistência dos travamentos, tolerância de dano e ligação ao simulador real.
+- A primeira review confirmou o funcionamento, mas encontrou um helper de teste não utilizado; foi removido.
+- A segunda execução da suite passou integralmente em Chromium.
 - Resultado final do GitHub Actions: **success**.
