@@ -1,11 +1,8 @@
 const PHASES = {
   assembly: {
     title: 'Montagem',
-    subtitle: 'Monta o conjunto passo a passo e observa onde cada peça encaixa.',
-    controls: [
-      { id: 'asmSlot', label: 'Desgaste da ranhura', unit: '%', help: 'Mais desgaste permite movimento relativo entre veio, escatel e cilindro.' },
-      { id: 'asmTab', label: 'Desgaste do escatel', unit: '%', help: 'Um escatel gasto transmite pior o binário e aumenta a folga transversal.' }
-    ]
+    subtitle: 'Monta o conjunto passo a passo e escolhe o sistema de travamento antes de avançar.',
+    controls: []
   },
   machine: {
     title: 'Efeito Junker',
@@ -104,6 +101,38 @@ function installLegacyMinimalMode(frameDoc) {
   frameDoc.head.appendChild(style);
 }
 
+function createLockPicker(frameDoc, explanation, summary, phase) {
+  const lockCards = frameDoc.getElementById('lockingCards');
+  if (!lockCards) return null;
+
+  const section = document.createElement('section');
+  section.className = 'lock-picker';
+  section.innerHTML = `<div class="dock-section-title"><strong>${phase === 'assembly' ? 'Anilhas e travamento da montagem' : 'Travamento em teste'}</strong><span>${phase === 'assembly' ? 'Escolha guardada para o ensaio' : 'Altera em tempo real'}</span></div>`;
+  const options = document.createElement('div');
+  options.className = 'dock-lock-options';
+
+  [...lockCards.querySelectorAll('.locking-card')].forEach((legacyCard) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.value = legacyCard.dataset.value;
+    button.innerHTML = `<strong>${legacyCard.querySelector('strong')?.textContent || ''}</strong><small>${legacyCard.querySelector('small')?.textContent || ''}</small>`;
+    const activate = () => {
+      options.querySelectorAll('button').forEach((item) => item.classList.toggle('active', item === button));
+    };
+    if (legacyCard.classList.contains('active')) activate();
+    button.addEventListener('click', () => {
+      legacyCard.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      activate();
+      explanation.textContent = frameDoc.getElementById('lockDesc')?.textContent || 'Sistema de travamento selecionado.';
+      summary.textContent = `${phase === 'assembly' ? 'Montagem preparada com' : 'Travamento'}: ${button.querySelector('strong').textContent}`;
+    });
+    options.appendChild(button);
+  });
+
+  section.appendChild(options);
+  return section;
+}
+
 export function installContextualControls(frame) {
   const host = document.getElementById('controlDock');
   const title = document.getElementById('dockTitle');
@@ -125,38 +154,19 @@ export function installContextualControls(frame) {
     host.replaceChildren();
     title.textContent = config.title;
     subtitle.textContent = config.subtitle;
-    explanation.textContent = 'Move um controlo para ver a relação causa → efeito.';
-    summary.textContent = 'Simulação pronta';
+    explanation.textContent = phase === 'assembly'
+      ? 'Escolhe o sistema de anilhas/travamento que será montado. O mesmo sistema segue para o ensaio Junker.'
+      : 'Move um controlo para ver a relação causa → efeito.';
+    summary.textContent = phase === 'assembly' ? 'Escolhe o travamento da montagem' : 'Simulação pronta';
 
     config.controls.forEach((definition) => {
       const legacyInput = frameDoc.getElementById(definition.id);
       if (legacyInput) host.appendChild(createControl(document, definition, legacyInput, explanation, summary));
     });
 
-    if (phase === 'machine') {
-      const lockCards = frameDoc.getElementById('lockingCards');
-      if (lockCards) {
-        const section = document.createElement('section');
-        section.className = 'lock-picker';
-        section.innerHTML = '<div class="dock-section-title"><strong>Travamento</strong><span>Escolhe e compara</span></div>';
-        const options = document.createElement('div');
-        options.className = 'dock-lock-options';
-        [...lockCards.querySelectorAll('.locking-card')].forEach((legacyCard) => {
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.dataset.value = legacyCard.dataset.value;
-          button.innerHTML = `<strong>${legacyCard.querySelector('strong')?.textContent || ''}</strong><small>${legacyCard.querySelector('small')?.textContent || ''}</small>`;
-          button.addEventListener('click', () => {
-            legacyCard.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-            options.querySelectorAll('button').forEach((item) => item.classList.toggle('active', item === button));
-            explanation.textContent = frameDoc.getElementById('lockDesc')?.textContent || 'Sistema de travamento selecionado.';
-            summary.textContent = `Travamento: ${button.querySelector('strong').textContent}`;
-          });
-          options.appendChild(button);
-        });
-        section.appendChild(options);
-        host.appendChild(section);
-      }
+    if (phase === 'assembly' || phase === 'machine') {
+      const picker = createLockPicker(frameDoc, explanation, summary, phase);
+      if (picker) host.appendChild(picker);
     }
   }
 
@@ -166,7 +176,7 @@ export function installContextualControls(frame) {
 
   advancedButton?.addEventListener('click', () => {
     const frameDoc = getFrameDocument(frame);
-    if (!frameDoc) return;
+    if (!frameDoc || currentPhase === 'assembly') return;
     const panel = currentPhase === 'clog' ? frameDoc.getElementById('clogPanel') : frameDoc.getElementById('panel');
     if (!panel) return;
     const visible = panel.style.getPropertyValue('display') === 'block';
@@ -194,8 +204,19 @@ export function installContextualControls(frame) {
       const values = ['cSpeed','cVisc','cRet','cBlade','cAng'].map((id) => frameDoc.getElementById(id)?.value);
       explanation.textContent = `Neste momento: ${values[0]} rpm, viscosidade ${values[1]} s, retardador ${values[2]}%, pressão ${values[3]} bar e ângulo ${values[4]}°. O entupimento aumenta quando a tinta seca antes da transferência ou a raclete trabalha fora da janela adequada.`;
     } else {
-      explanation.textContent = 'A montagem correta elimina folgas antes do arranque. O objetivo é observar onde nasce cada movimento relativo.';
+      const selected = frameDoc.querySelector('#lockingCards .locking-card.active strong')?.textContent || 'o sistema escolhido';
+      explanation.textContent = `A montagem será concluída com ${selected}. Ao avançar para o Junker, este travamento continua aplicado e pode ser alterado em tempo real para comparar a resistência.`;
     }
+  });
+
+  document.querySelectorAll('[data-phase]').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (advancedButton) {
+        advancedButton.hidden = button.dataset.phase === 'assembly';
+        advancedButton.setAttribute('aria-pressed', 'false');
+        advancedButton.textContent = 'Parâmetros avançados';
+      }
+    });
   });
 
   render('machine');
