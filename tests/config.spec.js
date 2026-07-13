@@ -20,6 +20,7 @@ test('configuration exposes immutable limits and ordered locking systems', async
   expect(result.limits.developmentMaxMm).toBe(800);
   expect(result.mechanical.maxCombinedGapMm).toBe(2.5);
   expect(result.mechanical.healthDamageToleranceMm).toBe(1.1);
+  expect(result.mechanical.maxReferenceRpm).toBe(600);
   expect(result.production.registrationToleranceUm).toBe(80);
   expect(result.production.readjustmentMinutes).toBe(10);
 
@@ -28,6 +29,7 @@ test('configuration exposes immutable limits and ordered locking systems', async
   expect(result.lockingSystems.map((system) => system.resistance)).toEqual([0, 0.55, 0.82, 0.94, 0.995]);
   expect(result.bridge.lockNames).toEqual(result.lockingSystems.map((system) => system.name));
   expect(result.bridge.lockResistance).toEqual(result.lockingSystems.map((system) => system.resistance));
+  expect(result.bridge.maxReferenceRpm).toBe(result.mechanical.maxReferenceRpm);
 });
 
 test('modern simulator receives the modular configuration bridge', async ({ page }) => {
@@ -38,6 +40,7 @@ test('modern simulator receives the modular configuration bridge', async ({ page
 
   expect(config.maxGapMm).toBe(2.5);
   expect(config.healthToleranceMm).toBe(1.1);
+  expect(config.maxReferenceRpm).toBe(600);
   expect(config.speedMinMpm).toBe(80);
   expect(config.speedMaxMpm).toBe(140);
   expect(config.speedPotentialMpm).toBe(300);
