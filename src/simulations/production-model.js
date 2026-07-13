@@ -88,7 +88,13 @@ export function calculateProductionSnapshot(state, nutDrift, speedFactor, vibrat
 
 export function advanceProductionAccumulator(accumulator, state, snapshot, deltaTime, config) {
   const next = {
-    ...createProductionAccumulator(),
+    metersLost: 0,
+    scrapMeters: 0,
+    capacityLostMeters: 0,
+    minLost: 0,
+    events: 0,
+    lastNutOk: true,
+    prodMeters: 0,
     ...accumulator
   };
   const dt = Math.max(0, Number(deltaTime) || 0);
