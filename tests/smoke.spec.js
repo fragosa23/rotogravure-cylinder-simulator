@@ -14,6 +14,9 @@ test('modern simulator loads and exposes all modules and locking systems', async
   const frame = page.frameLocator('#simulatorFrame');
   await expect(frame.locator('#menu')).toBeVisible();
 
+  const revision = await page.locator('#simulatorFrame').evaluate((iframe) => iframe.contentWindow?.THREE?.REVISION);
+  expect(revision).toBe('160');
+
   for (const phase of ['assembly', 'machine', 'clog']) {
     await page.locator(`[data-phase="${phase}"]`).first().click();
     await expect(page.locator(`[data-phase="${phase}"]`).first()).toHaveClass(/active/);
