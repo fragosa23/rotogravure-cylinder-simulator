@@ -5,7 +5,19 @@ const frame = document.getElementById('simulatorFrame');
 const loading = document.getElementById('loading');
 
 try {
-  const frameLoaded = new Promise((resolve) => frame.addEventListener('load', resolve, { once: true }));
+  const frameLoaded = new Promise((resolve) => {
+    frame.addEventListener('load', () => {
+      const doc = frame.contentDocument;
+      if (doc && !doc.getElementById('lockingVisualsScript')) {
+        const marker = doc.createElement('meta');
+        marker.id = 'lockingVisualsScript';
+        marker.dataset.replacedBy = 'src/machine/locking-system.js';
+        doc.head.appendChild(marker);
+      }
+      resolve();
+    }, { once: true });
+  });
+
   const uiReady = import('../modern-ui.js');
   await loadSimulator(frame);
   await frameLoaded;
