@@ -35,6 +35,7 @@ test('healthy and stopped production stays within valid limits', async ({ page }
   expect(result.healthy.scrapPercent).toBeLessThanOrEqual(100);
   expect(result.healthy.splashPercent).toBeGreaterThanOrEqual(0);
   expect(result.healthy.splashPercent).toBeLessThanOrEqual(100);
+  expect(Object.values(result.healthy.blame).reduce((sum, value) => sum + value, 0)).toBe(0);
 });
 
 test('worse defects increase losses and tolerant jobs reduce effective rejection', async ({ page }) => {
@@ -62,9 +63,10 @@ test('worse defects increase losses and tolerant jobs reduce effective rejection
   expect(result.strict.scrapPercent).toBeGreaterThan(result.healthy.scrapPercent);
   expect(result.tolerant.effectiveRegistrationErrorUm).toBeLessThan(result.strict.effectiveRegistrationErrorUm);
   expect(result.tolerant.scrapPercent).toBeLessThanOrEqual(result.strict.scrapPercent);
+  expect(Object.values(result.strict.blame).reduce((sum, value) => sum + value, 0)).toBe(100);
 });
 
-test('accumulator counts a loosening event once and rearms below the reset threshold', async ({ page }) => {
+test('accumulator separates physical scrap from lost production capacity', async ({ page }) => {
   await page.goto('/modern.html');
   const result = await page.evaluate(async ({ modelUrl, configUrl, state }) => {
     const model = await import(modelUrl);
@@ -86,23 +88,40 @@ test('accumulator counts a loosening event once and rearms below the reset thres
   expect(result.afterFirst.events).toBe(1);
   expect(result.afterSecond.events).toBe(1);
   expect(result.afterRearm.events).toBe(2);
-  expect(result.afterRearm.metersLost).toBeGreaterThanOrEqual(0);
+  expect(result.afterRearm.scrapMeters).toBeGreaterThanOrEqual(0);
+  expect(result.afterRearm.capacityLostMeters).toBeGreaterThan(0);
+  expect(result.afterRearm.metersLost).toBeCloseTo(
+    result.afterRearm.scrapMeters + result.afterRearm.capacityLostMeters,
+    8
+  );
   expect(result.afterRearm.minLost).toBeGreaterThanOrEqual(0);
 });
 
-test('modern simulator receives the modular production bridge', async ({ page }) => {
+test('modern simulator receives and executes the modular production bridge', async ({ page }) => {
   await page.goto('/modern.html');
   await expect(page.locator('#loading')).toHaveClass(/hidden/);
 
-  const bridge = await page.locator('#simulatorFrame').evaluate((iframe) => {
-    const api = iframe.contentWindow?.__ROTOSIM_PRODUCTION__;
-    return api ? Object.keys(api).sort() : [];
+  const result = await page.locator('#simulatorFrame').evaluate((iframe) => {
+    const win = iframe.contentWindow;
+    const api = win?.__ROTOSIM_PRODUCTION__;
+    const config = win?.__ROTOSIM_CONFIG__;
+    const state = win?.__ROTOSIM_STATE__;
+    if (!api || !config || !state) return null;
+
+    const snapshot = api.calculateProductionSnapshot({ ...state, speed: 300, nut: 60 }, 0, 0.5, 40, 1, config);
+    const accumulator = api.advanceProductionAccumulator(api.createProductionAccumulator(), { ...state, speed: 300 }, snapshot, 1, config);
+    return {
+      keys: Object.keys(api).sort(),
+      accumulator
+    };
   });
 
-  expect(bridge).toEqual([
+  expect(result.keys).toEqual([
     'advanceProductionAccumulator',
     'buildProductionVerdict',
     'calculateProductionSnapshot',
     'createProductionAccumulator'
   ]);
+  expect(result.accumulator.capacityLostMeters).toBeGreaterThan(0);
+  expect(result.accumulator.metersLost).toBeGreaterThanOrEqual(result.accumulator.capacityLostMeters);
 });
