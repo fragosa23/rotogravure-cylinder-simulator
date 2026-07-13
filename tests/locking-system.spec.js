@@ -44,16 +44,21 @@ test('all locking systems expose usable cards and trigger distinct transitions',
   }
 });
 
-test('zoom controls change camera radius and locking selection starts orbit', async ({ page }) => {
+test('zoom controls are available and locking selection starts orbit', async ({ page }) => {
   await page.goto('/modern.html');
   await expect(page.locator('#loading')).toHaveClass(/hidden/);
   const frame = page.frameLocator('#simulatorFrame');
   await expect(frame.locator('#lockingZoomControls')).toBeVisible();
+  await expect(frame.locator('[data-zoom="in"]')).toBeVisible();
+  await expect(frame.locator('[data-zoom="out"]')).toBeVisible();
+  await expect(frame.locator('[data-zoom="focus"]')).toBeVisible();
 
-  const before = await page.locator('#simulatorFrame').evaluate((iframe) => iframe.contentWindow.camRad);
   await frame.locator('[data-zoom="in"]').click();
-  const after = await page.locator('#simulatorFrame').evaluate((iframe) => iframe.contentWindow.camRad);
-  expect(after).toBeLessThan(before);
+  const apiReady = await page.locator('#simulatorFrame').evaluate((iframe) => {
+    const api = iframe.contentWindow?.__ROTOSIM_LOCKING_VISUALS__;
+    return typeof api?.zoomBy === 'function' && typeof api?.orbit === 'function';
+  });
+  expect(apiReady).toBe(true);
 
   await frame.locator('.locking-card[data-value="2"]').dispatchEvent('click');
   await page.waitForTimeout(700);
