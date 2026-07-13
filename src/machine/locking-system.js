@@ -21,8 +21,11 @@ export function installLockingSystemExperience(doc) {
           if (root.parent) root.parent.remove(root);
         }
 
-        const previous = nutGroup.getObjectByName('locking-system-visuals');
-        if (previous) disposeObject(previous);
+        if (window.__ROTOSIM_LOCKING_VISUALS__?.dispose) window.__ROTOSIM_LOCKING_VISUALS__.dispose();
+        let residual;
+        while ((residual = nutGroup.children.find((child) => child.name === 'locking-system-visuals'))) {
+          disposeObject(residual);
+        }
 
         const root = new THREE.Group();
         root.name = 'locking-system-visuals';
@@ -99,6 +102,8 @@ export function installLockingSystemExperience(doc) {
         let selected = -1;
         let transition = 1;
         let previousLock = Number(S.lock);
+        let active = true;
+        let animationFrame = 0;
 
         function focusLockingArea() {
           if (typeof camFocusGo === 'function') camFocusGo('anilhas');
@@ -115,6 +120,7 @@ export function installLockingSystemExperience(doc) {
         }
 
         function update() {
+          if (!active) return;
           const lock = Number(S.lock);
           if (lock !== selected) {
             previousLock = selected < 0 ? lock : selected;
@@ -145,14 +151,16 @@ export function installLockingSystemExperience(doc) {
           root.userData.selectedLock = lock;
           root.userData.transition = transition;
           root.userData.previousLock = previousLock;
-          requestAnimationFrame(update);
+          animationFrame = requestAnimationFrame(update);
         }
 
-        window.__ROTOSIM_LOCKING_VISUALS__ = {
-          root,
-          dispose: () => disposeObject(root),
-          focus: focusLockingArea
-        };
+        function dispose() {
+          active = false;
+          if (animationFrame) cancelAnimationFrame(animationFrame);
+          disposeObject(root);
+        }
+
+        window.__ROTOSIM_LOCKING_VISUALS__ = { root, dispose, focus: focusLockingArea };
         update();
       } catch (error) {
         console.error('Falha no módulo de travamento.', error);
