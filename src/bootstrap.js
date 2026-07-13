@@ -1,6 +1,7 @@
 import { loadSimulator } from './simulator-loader.js';
 import { installLockingSystemExperience } from './machine/locking-system.js';
 import { installTrainingExperience } from './training/training-experience.js';
+import { installContextualControls } from './ui/contextual-controls.js';
 
 const frame = document.getElementById('simulatorFrame');
 const loading = document.getElementById('loading');
@@ -25,6 +26,7 @@ try {
   await uiReady;
   installLockingSystemExperience(frame.contentDocument);
   installTrainingExperience(frame.contentDocument);
+  installContextualControls(frame);
 } catch (error) {
   loading.classList.add('error');
   loading.innerHTML = `<p>Não foi possível iniciar o simulador.</p><small>${error.message}</small>`;
