@@ -18,32 +18,14 @@ test('modern simulator loads and exposes all modules and locking systems', async
   expect(revision).toBe('160');
 
   const initialState = await page.locator('#simulatorFrame').evaluate((iframe) => iframe.contentWindow?.__ROTOSIM_STATE__);
-  expect(initialState).toEqual({
-    speed: 0,
-    keyIn: 0,
-    keyOut: 0,
-    slot: 0,
-    tab: 0,
-    seat: 0,
-    nut: 0,
-    bal: 0,
-    lock: 0,
-    dia: 420,
-    health: 100,
-    failed: false
-  });
+  expect(initialState).toEqual({ speed:0,keyIn:0,keyOut:0,slot:0,tab:0,seat:0,nut:0,bal:0,lock:0,dia:420,health:100,failed:false });
 
   const stateModuleResult = await page.evaluate(async () => {
     const { createSimulatorState, resetSimulatorState, validateSimulatorState } = await import('/src/core/state.js');
     const state = createSimulatorState({ speed: 120, lock: 3 });
     const beforeReset = { ...state };
     resetSimulatorState(state);
-    return {
-      beforeReset,
-      afterReset: state,
-      errors: validateSimulatorState(state),
-      invalidErrors: validateSimulatorState({ ...state, health: 140, lock: 8 })
-    };
+    return { beforeReset, afterReset: state, errors: validateSimulatorState(state), invalidErrors: validateSimulatorState({ ...state, health: 140, lock: 8 }) };
   });
 
   expect(stateModuleResult.beforeReset.speed).toBe(120);
@@ -65,7 +47,11 @@ test('modern simulator loads and exposes all modules and locking systems', async
 
   for (let value = 0; value < 5; value += 1) {
     const card = frame.locator(`.locking-card[data-value="${value}"]`);
-    await card.click();
+    await expect(card).toBeVisible();
+    const box = await card.boundingBox();
+    expect(box?.width).toBeGreaterThanOrEqual(44);
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+    await card.dispatchEvent('click');
     await expect(card).toHaveClass(/active/);
     await expect(frame.locator('#lock')).toHaveValue(String(value));
   }
@@ -75,7 +61,7 @@ test('modern simulator loads and exposes all modules and locking systems', async
 
   const visualInstalled = await page.locator('#simulatorFrame').evaluate((iframe) => {
     const win = iframe.contentWindow;
-    return Boolean(win && win.document.getElementById('lockingVisualsScript'));
+    return Boolean(win?.__ROTOSIM_LOCKING_VISUALS__?.root);
   });
   expect(visualInstalled).toBe(true);
 
