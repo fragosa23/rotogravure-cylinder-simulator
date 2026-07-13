@@ -7,7 +7,7 @@ Este ficheiro acompanha o trabalho realizado no PR #29. Uma tarefa só recebe vi
 - [x] Extrair estado global para `src/core/state.js`
 - [x] Extrair constantes e parâmetros para `src/core/config.js`
 - [x] Extrair modelo do efeito Junker
-- [ ] Extrair cálculo de produção e qualidade
+- [x] Extrair cálculo de produção e qualidade
 - [ ] Extrair modelo de entupimento
 - [ ] Extrair sistema de travamento e geometrias
 - [ ] Extrair construção da máquina 3D
@@ -19,7 +19,7 @@ Este ficheiro acompanha o trabalho realizado no PR #29. Uma tarefa só recebe vi
 
 - [x] Criar testes unitários do estado
 - [x] Criar testes unitários do modelo Junker
-- [ ] Testar limites e invariantes de produção
+- [x] Testar limites e invariantes de produção
 - [ ] Criar testes unitários do entupimento
 - [ ] Testar libertação de memória Three.js
 - [ ] Criar testes visuais para computador e telemóvel
@@ -80,4 +80,16 @@ Este ficheiro acompanha o trabalho realizado no PR #29. Uma tarefa só recebe vi
 - Adicionados testes para máquina parada, aumento de vibração com desgaste, ordem de resistência dos travamentos, tolerância de dano e ligação ao simulador real.
 - A primeira review confirmou o funcionamento, mas encontrou um helper de teste não utilizado; foi removido.
 - A segunda execução da suite passou integralmente em Chromium.
+- Resultado final do GitHub Actions: **success**.
+
+### Tarefa 4 — Produção e qualidade
+
+- Implementado em `src/simulations/production-model.js`.
+- Extraídos velocidade efetiva, erro de registo, manchas, refugo, rejeição, responsabilidade e acumulação de perdas.
+- A versão moderna substitui `updateAnalysis()` por uma camada de apresentação alimentada pelo novo modelo.
+- Adicionados testes para limites de 0–100%, tolerância de trabalho, rejeição, ordem das perdas e ligação ao simulador real.
+- A primeira review encontrou a mistura entre refugo físico e capacidade não produzida; o acumulador passou a separar `scrapMeters` e `capacityLostMeters`.
+- A segunda review encontrou percentagens de responsabilidade que podiam somar 99% ou 101%; foram normalizadas para 100% quando existem causas.
+- A terceira review encontrou uma dependência interna insegura na função serializada para o iframe; a função foi tornada autónoma.
+- A suite completa voltou a passar em Chromium.
 - Resultado final do GitHub Actions: **success**.
