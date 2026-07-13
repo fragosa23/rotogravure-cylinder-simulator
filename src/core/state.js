@@ -1,3 +1,5 @@
+import { SIMULATOR_LIMITS } from './config.js';
+
 export const DEFAULT_SIMULATOR_STATE = Object.freeze({
   speed: 0,
   keyIn: 0,
@@ -44,9 +46,15 @@ export function validateSimulatorState(state) {
   }
 
   if (typeof state.failed !== 'boolean') errors.push('failed deve ser booleano.');
-  if (state.health < 0 || state.health > 100) errors.push('health deve estar entre 0 e 100.');
-  if (state.lock < 0 || state.lock > 4) errors.push('lock deve estar entre 0 e 4.');
-  if (state.dia < 300 || state.dia > 800) errors.push('dia deve estar entre 300 e 800 mm de desenvolvimento.');
+  if (state.health < SIMULATOR_LIMITS.healthMin || state.health > SIMULATOR_LIMITS.healthMax) {
+    errors.push(`health deve estar entre ${SIMULATOR_LIMITS.healthMin} e ${SIMULATOR_LIMITS.healthMax}.`);
+  }
+  if (state.lock < SIMULATOR_LIMITS.lockingSystemMin || state.lock > SIMULATOR_LIMITS.lockingSystemMax) {
+    errors.push(`lock deve estar entre ${SIMULATOR_LIMITS.lockingSystemMin} e ${SIMULATOR_LIMITS.lockingSystemMax}.`);
+  }
+  if (state.dia < SIMULATOR_LIMITS.developmentMinMm || state.dia > SIMULATOR_LIMITS.developmentMaxMm) {
+    errors.push(`dia deve estar entre ${SIMULATOR_LIMITS.developmentMinMm} e ${SIMULATOR_LIMITS.developmentMaxMm} mm de desenvolvimento.`);
+  }
 
   return errors;
 }
