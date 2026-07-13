@@ -5,7 +5,7 @@ Este ficheiro acompanha o trabalho realizado no PR #29. Uma tarefa só recebe vi
 ## Fase A — Arquitetura
 
 - [x] Extrair estado global para `src/core/state.js`
-- [ ] Extrair constantes e parâmetros para `src/core/config.js`
+- [x] Extrair constantes e parâmetros para `src/core/config.js`
 - [ ] Extrair modelo do efeito Junker
 - [ ] Extrair cálculo de produção e qualidade
 - [ ] Extrair modelo de entupimento
@@ -60,4 +60,14 @@ Este ficheiro acompanha o trabalho realizado no PR #29. Uma tarefa só recebe vi
 - Adicionadas validação, criação com overrides e reposição segura dos valores por defeito.
 - A review encontrou os testes de estado misturados no smoke test; foram separados para `tests/state.spec.js`.
 - O workflow passou a executar toda a suite com `npm test`.
+- Resultado final do GitHub Actions: **success**.
+
+### Tarefa 2 — Constantes e parâmetros
+
+- Implementado em `src/core/config.js`.
+- Centralizados limites do estado, parâmetros mecânicos, parâmetros de produção e os cinco sistemas de travamento.
+- A versão moderna injeta uma ponte de configuração no simulador legado e substitui os valores esperados durante o carregamento.
+- Adicionados testes próprios em `tests/config.spec.js` para o módulo e para a ligação real ao iframe.
+- A primeira review encontrou `maxReferenceRpm` definido mas ainda não usado pela normalização da velocidade; a fórmula foi corrigida para consumir o valor modular.
+- A segunda review não encontrou constantes explícitas desconectadas dentro do âmbito desta tarefa. Os coeficientes internos do efeito Junker serão tratados durante a extração do respetivo modelo.
 - Resultado final do GitHub Actions: **success**.
