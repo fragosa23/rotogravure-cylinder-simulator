@@ -44,6 +44,27 @@ test('all locking systems expose usable cards and trigger distinct transitions',
   }
 });
 
+test('zoom controls change camera radius and locking selection starts orbit', async ({ page }) => {
+  await page.goto('/modern.html');
+  await expect(page.locator('#loading')).toHaveClass(/hidden/);
+  const frame = page.frameLocator('#simulatorFrame');
+  await expect(frame.locator('#lockingZoomControls')).toBeVisible();
+
+  const before = await page.locator('#simulatorFrame').evaluate((iframe) => iframe.contentWindow.camRad);
+  await frame.locator('[data-zoom="in"]').click();
+  const after = await page.locator('#simulatorFrame').evaluate((iframe) => iframe.contentWindow.camRad);
+  expect(after).toBeLessThan(before);
+
+  await frame.locator('.locking-card[data-value="2"]').dispatchEvent('click');
+  await page.waitForTimeout(700);
+  const orbit = await page.locator('#simulatorFrame').evaluate((iframe) => {
+    const root = iframe.contentWindow?.__ROTOSIM_LOCKING_VISUALS__?.root;
+    return { orbiting: root?.userData?.orbiting, progress: root?.userData?.orbitProgress };
+  });
+  expect(orbit.orbiting).toBe(true);
+  expect(orbit.progress).toBeGreaterThan(0);
+});
+
 test('locking visual resources can be disposed without leaving the root attached', async ({ page }) => {
   await page.goto('/modern.html');
   await expect(page.locator('#loading')).toHaveClass(/hidden/);
@@ -53,9 +74,11 @@ test('locking visual resources can be disposed without leaving the root attached
     api?.dispose();
     return {
       stillAttached: parent?.children?.includes(api?.root),
-      rootCount: parent?.children?.filter((child) => child.name === 'locking-system-visuals').length
+      rootCount: parent?.children?.filter((child) => child.name === 'locking-system-visuals').length,
+      zoomControls: Boolean(iframe.contentDocument?.getElementById('lockingZoomControls'))
     };
   });
   expect(result.stillAttached).toBe(false);
   expect(result.rootCount).toBe(0);
+  expect(result.zoomControls).toBe(false);
 });
