@@ -17,6 +17,43 @@ test('modern simulator loads and exposes all modules and locking systems', async
   const revision = await page.locator('#simulatorFrame').evaluate((iframe) => iframe.contentWindow?.THREE?.REVISION);
   expect(revision).toBe('160');
 
+  const initialState = await page.locator('#simulatorFrame').evaluate((iframe) => iframe.contentWindow?.__ROTOSIM_STATE__);
+  expect(initialState).toEqual({
+    speed: 0,
+    keyIn: 0,
+    keyOut: 0,
+    slot: 0,
+    tab: 0,
+    seat: 0,
+    nut: 0,
+    bal: 0,
+    lock: 0,
+    dia: 420,
+    health: 100,
+    failed: false
+  });
+
+  const stateModuleResult = await page.evaluate(async () => {
+    const { createSimulatorState, resetSimulatorState, validateSimulatorState } = await import('/src/core/state.js');
+    const state = createSimulatorState({ speed: 120, lock: 3 });
+    const beforeReset = { ...state };
+    resetSimulatorState(state);
+    return {
+      beforeReset,
+      afterReset: state,
+      errors: validateSimulatorState(state),
+      invalidErrors: validateSimulatorState({ ...state, health: 140, lock: 8 })
+    };
+  });
+
+  expect(stateModuleResult.beforeReset.speed).toBe(120);
+  expect(stateModuleResult.beforeReset.lock).toBe(3);
+  expect(stateModuleResult.afterReset.speed).toBe(0);
+  expect(stateModuleResult.afterReset.health).toBe(100);
+  expect(stateModuleResult.errors).toEqual([]);
+  expect(stateModuleResult.invalidErrors).toContain('health deve estar entre 0 e 100.');
+  expect(stateModuleResult.invalidErrors).toContain('lock deve estar entre 0 e 4.');
+
   for (const phase of ['assembly', 'machine', 'clog']) {
     await page.locator(`[data-phase="${phase}"]`).first().click();
     await expect(page.locator(`[data-phase="${phase}"]`).first()).toHaveClass(/active/);
@@ -32,6 +69,9 @@ test('modern simulator loads and exposes all modules and locking systems', async
     await expect(card).toHaveClass(/active/);
     await expect(frame.locator('#lock')).toHaveValue(String(value));
   }
+
+  const liveState = await page.locator('#simulatorFrame').evaluate((iframe) => iframe.contentWindow?.__ROTOSIM_STATE__);
+  expect(liveState.lock).toBe(4);
 
   const visualInstalled = await page.locator('#simulatorFrame').evaluate((iframe) => {
     const win = iframe.contentWindow;
