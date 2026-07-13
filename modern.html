@@ -2,54 +2,105 @@
 <html lang="pt-PT">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#070b14" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f5f7fb" />
   <title>Rotogravure Lab</title>
   <link rel="stylesheet" href="modern-ui.css" />
 </head>
 <body>
   <main class="app-shell">
-    <header class="topbar">
+    <header class="app-header">
       <a class="brand" href="modern.html" aria-label="Rotogravure Lab — início">
-        <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
-        <span><strong>Rotogravure Lab</strong><small>Simulador técnico interativo</small></span>
+        <span class="brand-symbol" aria-hidden="true"></span>
+        <span><strong>Rotogravure Lab</strong><small>Simulação e formação</small></span>
       </a>
 
-      <nav class="phase-nav" aria-label="Módulos do simulador">
-        <button type="button" data-phase="assembly"><span>01</span> Montagem</button>
-        <button type="button" data-phase="machine"><span>02</span> Efeito Junker</button>
-        <button type="button" data-phase="clog"><span>03</span> Entupimento</button>
-      </nav>
+      <div class="header-status" aria-live="polite">
+        <span class="status-dot"></span>
+        <span id="appStatus">Pronto</span>
+      </div>
 
-      <div class="top-actions">
-        <button id="largeText" type="button" class="icon-button" aria-pressed="false" title="Aumentar texto">Aa</button>
-        <button id="fullscreen" type="button" class="icon-button" title="Ecrã inteiro">⛶</button>
+      <div class="header-actions">
+        <button id="toggleDetails" type="button" class="quiet-button" aria-expanded="false">Detalhes</button>
+        <button id="fullscreen" type="button" class="icon-button" aria-label="Ecrã inteiro">⛶</button>
       </div>
     </header>
 
     <section class="workspace">
-      <aside class="context-panel" aria-label="Informação do módulo">
-        <p class="eyebrow">Formação em rotogravura</p>
-        <h1 id="moduleTitle">Escolhe um módulo</h1>
-        <p id="moduleDescription" class="module-description">Explora a montagem do cilindro, o auto-desaperto causado por vibração e os defeitos ligados à tinta e à raclete.</p>
+      <nav class="module-rail" aria-label="Módulos do simulador">
+        <button type="button" data-phase="assembly" aria-label="Montagem">
+          <span class="module-icon">01</span><span>Montagem</span>
+        </button>
+        <button type="button" data-phase="machine" aria-label="Efeito Junker">
+          <span class="module-icon">02</span><span>Junker</span>
+        </button>
+        <button type="button" data-phase="clog" aria-label="Entupimento">
+          <span class="module-icon">03</span><span>Tinta</span>
+        </button>
+      </nav>
 
-        <div class="module-list">
-          <button type="button" data-phase="assembly"><span class="module-number">01</span><span><strong>Montagem</strong><small>Veio, buchas, escatel e rodas</small></span></button>
-          <button type="button" data-phase="machine"><span class="module-number">02</span><span><strong>Efeito Junker</strong><small>Vibração, desaperto e produção</small></span></button>
-          <button type="button" data-phase="clog"><span class="module-number">03</span><span><strong>Entupimento</strong><small>Tinta, raclete e altas-luzes</small></span></button>
-        </div>
-
-        <div class="context-note"><span class="pulse-dot" aria-hidden="true"></span><p><strong>Modelo didático</strong><br />Os resultados mostram tendências e não substituem medições na máquina.</p></div>
-      </aside>
-
-      <section class="simulator-card" aria-label="Simulador 3D">
-        <div class="simulator-toolbar">
-          <div><span class="live-indicator"><i></i> Simulação pronta</span><strong id="toolbarTitle">Visão geral</strong></div>
-          <p>Arrasta para rodar · roda para ampliar · Shift para deslocar</p>
-        </div>
+      <section class="stage-card" aria-label="Simulador 3D">
         <iframe id="simulatorFrame" title="Simulador 3D de rotogravura"></iframe>
+
+        <div class="stage-topbar">
+          <div>
+            <p id="moduleEyebrow">SIMULADOR</p>
+            <h1 id="moduleTitle">Escolhe um módulo</h1>
+          </div>
+          <div class="metric-strip" aria-label="Indicadores principais">
+            <div><small>Estado</small><strong id="metricState">—</strong></div>
+            <div><small id="metricTwoLabel">Vibração</small><strong id="metricTwo">0%</strong></div>
+            <div><small id="metricThreeLabel">Desaperto</small><strong id="metricThree">0%</strong></div>
+          </div>
+        </div>
+
         <div id="loading" class="loading-state"><span class="loader"></span><p>A preparar o simulador</p></div>
       </section>
+
+      <aside id="detailsPanel" class="details-panel" aria-hidden="true">
+        <div class="details-head">
+          <div><small>CONTEXTO</small><h2 id="detailsTitle">Visão geral</h2></div>
+          <button id="closeDetails" type="button" aria-label="Fechar detalhes">×</button>
+        </div>
+        <p id="moduleDescription">Seleciona um módulo para começar.</p>
+        <div id="detailsContent" class="details-content"></div>
+      </aside>
+    </section>
+
+    <section class="control-dock" aria-label="Controlos principais">
+      <div id="assemblyControls" class="control-group" hidden>
+        <div class="control-copy"><small>PASSO ATUAL</small><strong id="assemblyStepLabel">Cilindro pousado</strong></div>
+        <div class="segmented-actions">
+          <button id="assemblyPrev" type="button">Anterior</button>
+          <button id="assemblyNext" type="button" class="primary">Seguinte</button>
+        </div>
+      </div>
+
+      <div id="machineControls" class="control-group" hidden>
+        <label class="compact-control"><span>Rotação <b id="speedValue">0 rpm</b></span><input id="speedControl" type="range" min="0" max="600" step="10" value="0" /></label>
+        <label class="compact-control"><span>Desgaste <b id="wearValue">0%</b></span><input id="wearControl" type="range" min="0" max="100" step="1" value="0" /></label>
+        <div class="lock-selector" aria-label="Sistema de travamento">
+          <button type="button" data-lock="0">Livre</button>
+          <button type="button" data-lock="1">Contra-porca</button>
+          <button type="button" data-lock="2" class="active">Cunha</button>
+          <button type="button" data-lock="3">Patilha</button>
+          <button type="button" data-lock="4">Cavilha</button>
+        </div>
+      </div>
+
+      <div id="clogControls" class="control-group" hidden>
+        <label class="compact-control"><span>Rotação <b id="clogSpeedValue">0 rpm</b></span><input id="clogSpeedControl" type="range" min="0" max="300" step="10" value="0" /></label>
+        <label class="compact-control"><span>Viscosidade <b id="viscosityValue">13 s</b></span><input id="viscosityControl" type="range" min="8" max="30" step="0.5" value="13" /></label>
+        <label class="compact-control"><span>Retardador <b id="retarderValue">9%</b></span><input id="retarderControl" type="range" min="0" max="25" step="1" value="9" /></label>
+        <div class="segmented-actions">
+          <button id="stopInk" type="button">Simular paragem</button>
+          <button id="cleanInk" type="button" class="primary">Lavar cilindro</button>
+        </div>
+      </div>
+
+      <div id="emptyControls" class="empty-controls">
+        <span>Escolhe Montagem, Junker ou Tinta para começar.</span>
+      </div>
     </section>
   </main>
 
