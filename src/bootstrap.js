@@ -1,13 +1,16 @@
 import { loadSimulator } from './simulator-loader.js';
 import { installLockingSystemExperience } from './machine/locking-system.js';
+import { installNordLockXSeries } from './machine/nordlock-xseries.js';
 import { installTrainingExperience } from './training/training-experience.js';
 import { installContextualControls } from './ui/contextual-controls.js';
+import { installContextualStyle } from './ui/contextual-style.js';
 import { installThemeToggle } from './ui/theme-toggle.js';
 
 const frame = document.getElementById('simulatorFrame');
 const loading = document.getElementById('loading');
 
 installThemeToggle();
+installContextualStyle();
 
 try {
   const frameLoaded = new Promise((resolve) => {
@@ -28,6 +31,7 @@ try {
   await frameLoaded;
   await uiReady;
   installLockingSystemExperience(frame.contentDocument);
+  installNordLockXSeries(frame.contentDocument);
   installTrainingExperience(frame.contentDocument);
   installContextualControls(frame);
 } catch (error) {
