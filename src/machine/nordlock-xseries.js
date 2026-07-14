@@ -10,8 +10,8 @@ export function installNordLockXSeries(doc) {
         const root = visuals?.root;
         if (!root || root.getObjectByName('nordlock-x-series')) return;
 
-        const obsoleteCastle = root.children[3];
-        if (obsoleteCastle) obsoleteCastle.visible = false;
+        const obsoleteGroup = root.getObjectByName('obsolete-lock-four') || root.children[3];
+        if (obsoleteGroup) obsoleteGroup.visible = false;
 
         try {
           lockNames[2] = 'Nord-Lock standard';
@@ -29,8 +29,6 @@ export function installNordLockXSeries(doc) {
         const steel = new THREE.MeshStandardMaterial({ color: 0xbecbd7, metalness: 0.9, roughness: 0.2 });
         const washerA = new THREE.Mesh(washerGeo(outer, inner, 0.14), blue);
         const washerB = new THREE.Mesh(washerGeo(outer, inner, 0.14), blue.clone());
-        washerA.position.x = -0.09;
-        washerB.position.x = 0.09;
         group.add(washerA, washerB);
 
         for (let i = 0; i < 16; i += 1) {
@@ -43,25 +41,44 @@ export function installNordLockXSeries(doc) {
 
         const spring = new THREE.Mesh(new THREE.TorusGeometry(shaftR * 1.27, 0.055, 10, 48), steel);
         spring.rotation.y = Math.PI / 2;
-        spring.scale.x = 0.72;
         group.add(spring);
         root.add(group);
 
         let active = true;
+        let frameId = 0;
         function update() {
           if (!active) return;
-          if (obsoleteCastle) obsoleteCastle.visible = false;
+          if (obsoleteGroup) obsoleteGroup.visible = false;
           group.visible = Number(S.lock) === 4;
           const baseX = nutA.position.x - 0.34;
           group.position.set(baseX, nutA.position.y, nutA.position.z);
-          const loosen = Math.min(1, Math.max(0, (S.nut + nutDrift) / 100));
-          washerA.rotation.x = 0.05 + loosen * 0.08;
-          washerB.rotation.x = -0.05 - loosen * 0.08;
-          spring.scale.x = 0.72 + loosen * 0.06;
-          requestAnimationFrame(update);
+
+          const demo = (Math.sin(performance.now() * 0.0032) + 1) / 2;
+          const rotation = (demo - 0.5) * 0.26;
+          const separation = demo * 0.1;
+          washerA.position.x = -0.09 - separation;
+          washerB.position.x = 0.09 + separation;
+          washerA.rotation.x = 0.05 + rotation;
+          washerB.rotation.x = -0.05 - rotation;
+          spring.scale.set(0.72 + demo * 0.08, 1, 1);
+          group.userData.demoProgress = demo;
+          group.userData.mechanicalDemoRunning = true;
+          frameId = requestAnimationFrame(update);
         }
         update();
-        window.__ROTOSIM_NORDLOCK_X__ = { group, dispose(){ active = false; root.remove(group); group.traverse(child => { child.geometry?.dispose(); child.material?.dispose(); }); } };
+
+        window.__ROTOSIM_NORDLOCK_X__ = {
+          group,
+          dispose() {
+            active = false;
+            if (frameId) cancelAnimationFrame(frameId);
+            root.remove(group);
+            group.traverse((child) => {
+              child.geometry?.dispose();
+              child.material?.dispose();
+            });
+          }
+        };
       } catch (error) {
         console.error('Falha ao instalar Nord-Lock X-series.', error);
       }
