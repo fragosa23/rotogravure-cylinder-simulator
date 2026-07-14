@@ -1,23 +1,23 @@
 const { test, expect } = require('@playwright/test');
 
-test('modular locking visuals replace the previous visual root', async ({ page }) => {
+test('modular locking visuals replace the previous visual root without reference tape', async ({ page }) => {
   await page.goto('/modern.html');
   await expect(page.locator('#loading')).toHaveClass(/hidden/);
-  const frame = page.locator('#simulatorFrame');
-  const result = await frame.evaluate((iframe) => {
-    const win = iframe.contentWindow;
-    const root = win?.__ROTOSIM_LOCKING_VISUALS__?.root;
+  const result = await page.locator('#simulatorFrame').evaluate((iframe) => {
+    const root = iframe.contentWindow?.__ROTOSIM_LOCKING_VISUALS__?.root;
     return {
       exists: Boolean(root),
       modular: root?.userData?.modular,
       roots: root?.parent?.children?.filter((child) => child.name === 'locking-system-visuals').length,
-      hasReference: Boolean(root?.getObjectByName('locking-reference-line'))
+      hasReferenceTape: Boolean(root?.getObjectByName('locking-reference-line')),
+      demoRunning: root?.userData?.mechanicalDemoRunning
     };
   });
   expect(result.exists).toBe(true);
   expect(result.modular).toBe(true);
   expect(result.roots).toBe(1);
-  expect(result.hasReference).toBe(true);
+  expect(result.hasReferenceTape).toBe(false);
+  expect(result.demoRunning).toBe(true);
 });
 
 test('all locking systems expose usable cards and trigger distinct transitions', async ({ page }) => {
@@ -44,30 +44,43 @@ test('all locking systems expose usable cards and trigger distinct transitions',
   }
 });
 
-test('zoom controls are available and locking selection starts orbit', async ({ page }) => {
+test('camera orbit loops until interaction while mechanical demonstration continues', async ({ page }) => {
   await page.goto('/modern.html');
   await expect(page.locator('#loading')).toHaveClass(/hidden/);
   const frame = page.frameLocator('#simulatorFrame');
-  await expect(frame.locator('#lockingZoomControls')).toBeVisible();
-  await expect(frame.locator('[data-zoom="in"]')).toBeVisible();
-  await expect(frame.locator('[data-zoom="out"]')).toBeVisible();
-  await expect(frame.locator('[data-zoom="focus"]')).toBeVisible();
-
-  await frame.locator('[data-zoom="in"]').click();
-  const apiReady = await page.locator('#simulatorFrame').evaluate((iframe) => {
-    const api = iframe.contentWindow?.__ROTOSIM_LOCKING_VISUALS__;
-    return typeof api?.zoomBy === 'function' && typeof api?.orbit === 'function';
-  });
-  expect(apiReady).toBe(true);
-
   await frame.locator('.locking-card[data-value="2"]').dispatchEvent('click');
-  await page.waitForTimeout(700);
-  const orbit = await page.locator('#simulatorFrame').evaluate((iframe) => {
+  await page.waitForTimeout(800);
+
+  const before = await page.locator('#simulatorFrame').evaluate((iframe) => {
     const root = iframe.contentWindow?.__ROTOSIM_LOCKING_VISUALS__?.root;
-    return { orbiting: root?.userData?.orbiting, progress: root?.userData?.orbitProgress };
+    return {
+      orbiting: root?.userData?.orbiting,
+      demo: root?.userData?.demoProgress,
+      demoRunning: root?.userData?.mechanicalDemoRunning
+    };
   });
-  expect(orbit.orbiting).toBe(true);
-  expect(orbit.progress).toBeGreaterThan(0);
+  expect(before.orbiting).toBe(true);
+  expect(before.demoRunning).toBe(true);
+
+  await page.locator('#simulatorFrame').evaluate((iframe) => {
+    const api = iframe.contentWindow?.__ROTOSIM_LOCKING_VISUALS__;
+    api?.stopOrbit?.();
+  });
+  await page.waitForTimeout(250);
+
+  const after = await page.locator('#simulatorFrame').evaluate((iframe) => {
+    const root = iframe.contentWindow?.__ROTOSIM_LOCKING_VISUALS__?.root;
+    return {
+      orbiting: root?.userData?.orbiting,
+      cameraFree: root?.userData?.cameraFree,
+      demo: root?.userData?.demoProgress,
+      demoRunning: root?.userData?.mechanicalDemoRunning
+    };
+  });
+  expect(after.orbiting).toBe(false);
+  expect(after.cameraFree).toBe(true);
+  expect(after.demoRunning).toBe(true);
+  expect(after.demo).not.toBe(before.demo);
 });
 
 test('locking visual resources can be disposed without leaving the root attached', async ({ page }) => {
