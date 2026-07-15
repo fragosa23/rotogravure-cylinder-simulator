@@ -11,7 +11,7 @@
 <body class="catalog-active">
   <main class="app-shell">
     <header class="topbar">
-      <a class="brand" href="modern.html" aria-label="ObaniA LAB — início">
+      <a id="brandHome" class="brand" href="modern.html" aria-label="ObaniA LAB — voltar ao catálogo de simuladores">
         <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
         <span><strong>ObaniA LAB</strong><small>Formação técnica interativa</small></span>
       </a>
@@ -21,7 +21,11 @@
         <button type="button" data-phase="clog"><span>03</span> Entupimento</button>
       </nav>
       <div class="top-actions">
-        <button id="backToCatalog" type="button" class="catalog-back" hidden>Simuladores</button>
+        <div id="lessonTopNavigation" class="lesson-top-navigation" hidden>
+          <button id="backToLessons" type="button">← Lições</button>
+          <span id="lessonProgress">Lição 1 de 3</span>
+          <button id="nextLesson" type="button">Próxima →</button>
+        </div>
         <button id="largeText" type="button" class="icon-button" aria-pressed="false" title="Aumentar texto">Aa</button>
         <button id="themeToggle" type="button" class="icon-button" aria-pressed="false" title="Mudar para modo claro" aria-label="Mudar para modo claro">☀</button>
         <button id="fullscreen" type="button" class="icon-button" title="Ecrã inteiro">⛶</button>
@@ -41,7 +45,6 @@
     </section>
 
     <section id="homeScreen" class="home-screen lesson-screen" aria-label="Lições de rotogravura" hidden>
-      <button id="lessonBack" type="button" class="lesson-back">← Simuladores</button>
       <div class="home-orbit lesson-orbit" aria-hidden="true"><span class="orbit orbit-a"></span><span class="orbit orbit-b"></span><span class="orbit orbit-c"></span><span class="home-core">R</span></div>
       <p class="home-kicker">ROTOGRAVURA</p>
       <h1>Escolhe uma lição.</h1>
@@ -52,12 +55,6 @@
         <button type="button" data-phase="clog"><span>03</span><strong>Entupimento</strong><small>Tinta, raclete e transferência</small></button>
       </div>
     </section>
-
-    <nav id="lessonNavigation" class="lesson-navigation" aria-label="Navegação da lição" hidden>
-      <button id="backToLessons" type="button">← Voltar às lições</button>
-      <span id="lessonProgress">Lição 1 de 3</span>
-      <button id="nextLesson" type="button">Próxima lição →</button>
-    </nav>
 
     <section class="workspace" aria-hidden="true">
       <section class="viewer-card" aria-label="Simulador 3D">
