@@ -32,6 +32,19 @@ export function installCameraAndLighting(doc) {
           };
         }
 
+        function panCameraByPixels(dx, dy) {
+          const rect = canvas.getBoundingClientRect();
+          const fwd = new THREE.Vector3().subVectors(camTarget, camera.position).normalize();
+          const right = new THREE.Vector3().crossVectors(fwd, camera.up).normalize();
+          const up = new THREE.Vector3().crossVectors(right, fwd).normalize();
+          const worldPerPixel = (2 * camRad * Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5))) / Math.max(1, rect.height);
+          const sensitivity = 1.35;
+          camTarget.addScaledVector(right, -dx * worldPerPixel * sensitivity);
+          camTarget.addScaledVector(up, dy * worldPerPixel * sensitivity);
+          camGoal = null;
+          updateCam();
+        }
+
         function stopSlowOrbit() {
           slowOrbitToken += 1;
           if (slowOrbitFrame) cancelAnimationFrame(slowOrbitFrame);
@@ -101,9 +114,7 @@ export function installCameraAndLighting(doc) {
           const dy = nextMid.y - pinchMidY;
 
           locking.zoomBy?.((pinchDistance - nextDistance) * 0.018);
-          // O centro dos dois dedos desloca o ponto observado. Assim é possível
-          // aproximar uma peça e, no mesmo gesto, trazê-la para o centro do ecrã.
-          panCam(-dx * 0.025, dy * 0.025);
+          if (Math.abs(dx) > 0.25 || Math.abs(dy) > 0.25) panCameraByPixels(dx, dy);
 
           pinchDistance = nextDistance;
           pinchMidX = nextMid.x;
@@ -180,6 +191,7 @@ export function installCameraAndLighting(doc) {
           lightingRoot,
           startSlowOrbit,
           stopSlowOrbit,
+          panCameraByPixels,
           getState() {
             return {
               radius: camRad,
