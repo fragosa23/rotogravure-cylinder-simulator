@@ -34,12 +34,7 @@
       <h1>Escolhe o simulador.</h1>
       <p class="home-copy">Laboratório de formação e experiências para artes gráficas.</p>
       <div class="technology-actions" aria-label="Tecnologias disponíveis">
-        <button type="button" data-technology="rotogravure">
-          <span class="technology-code">01</span>
-          <strong>ROTOGRAVURA</strong>
-          <small>Máquina, cilindros, impressão, defeitos e diagnóstico.</small>
-          <i>Entrar</i>
-        </button>
+        <button type="button" data-technology="rotogravure"><span class="technology-code">01</span><strong>ROTOGRAVURA</strong><small>Máquina, cilindros, impressão, defeitos e diagnóstico.</small><i>Entrar</i></button>
         <div class="future-technology" aria-disabled="true"><span>Futuramente</span><strong>FLEXOGRAFIA</strong></div>
         <div class="future-technology" aria-disabled="true"><span>Futuramente</span><strong>OFFSET</strong></div>
       </div>
@@ -57,6 +52,12 @@
         <button type="button" data-phase="clog"><span>03</span><strong>Entupimento</strong><small>Tinta, raclete e transferência</small></button>
       </div>
     </section>
+
+    <nav id="lessonNavigation" class="lesson-navigation" aria-label="Navegação da lição" hidden>
+      <button id="backToLessons" type="button">← Voltar às lições</button>
+      <span id="lessonProgress">Lição 1 de 3</span>
+      <button id="nextLesson" type="button">Próxima lição →</button>
+    </nav>
 
     <section class="workspace" aria-hidden="true">
       <section class="viewer-card" aria-label="Simulador 3D">
