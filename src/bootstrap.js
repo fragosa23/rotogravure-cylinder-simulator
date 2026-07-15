@@ -2,6 +2,7 @@ import { loadSimulator } from './simulator-loader.js';
 import { installLockingSystemExperience } from './machine/locking-system.js';
 import { installNordLockXSeries } from './machine/nordlock-xseries.js';
 import { installCameraAndLighting } from './machine/camera-lighting.js';
+import { installGuidedAssemblyFit } from './machine/assembly-guided-fit.js';
 import { installTrainingExperience } from './training/training-experience.js';
 import { installContextualControls } from './ui/contextual-controls.js';
 import { installContextualStyle } from './ui/contextual-style.js';
@@ -37,6 +38,7 @@ try {
   installLockingSystemExperience(frame.contentDocument);
   installNordLockXSeries(frame.contentDocument);
   installCameraAndLighting(frame.contentDocument);
+  installGuidedAssemblyFit(frame.contentDocument);
   installTrainingExperience(frame.contentDocument);
   installContextualControls(frame);
   installMobilePinchZoom(frame.contentDocument);
