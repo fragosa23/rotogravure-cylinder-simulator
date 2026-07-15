@@ -3,10 +3,9 @@ export function installLabNavigation() {
   const catalog = document.getElementById('catalogScreen');
   const lessons = document.getElementById('homeScreen');
   const workspace = document.querySelector('.workspace');
-  const backTop = document.getElementById('backToCatalog');
-  const backLesson = document.getElementById('lessonBack');
+  const brandHome = document.getElementById('brandHome');
   const rotogravureButton = document.querySelector('[data-technology="rotogravure"]');
-  const lessonNavigation = document.getElementById('lessonNavigation');
+  const lessonTopNavigation = document.getElementById('lessonTopNavigation');
   const backToLessons = document.getElementById('backToLessons');
   const nextLesson = document.getElementById('nextLesson');
   const lessonProgress = document.getElementById('lessonProgress');
@@ -25,10 +24,10 @@ export function installLabNavigation() {
   function updateLessonNavigation(phase) {
     currentPhase = phase;
     const index = sequence.indexOf(phase);
-    if (index < 0 || !lessonNavigation) return;
-    lessonNavigation.hidden = false;
+    if (index < 0 || !lessonTopNavigation) return;
+    lessonTopNavigation.hidden = false;
     if (lessonProgress) lessonProgress.textContent = `Lição ${index + 1} de ${sequence.length}`;
-    if (nextLesson) nextLesson.textContent = index === sequence.length - 1 ? 'Concluir e voltar às lições' : 'Próxima lição →';
+    if (nextLesson) nextLesson.textContent = index === sequence.length - 1 ? 'Concluir' : 'Próxima →';
   }
 
   function showCatalog() {
@@ -38,8 +37,7 @@ export function installLabNavigation() {
     catalog.hidden = false;
     lessons.hidden = true;
     workspace.setAttribute('aria-hidden', 'true');
-    if (lessonNavigation) lessonNavigation.hidden = true;
-    backTop.hidden = true;
+    if (lessonTopNavigation) lessonTopNavigation.hidden = true;
     clearPhaseSelection();
   }
 
@@ -50,8 +48,7 @@ export function installLabNavigation() {
     catalog.hidden = true;
     lessons.hidden = false;
     workspace.setAttribute('aria-hidden', 'true');
-    if (lessonNavigation) lessonNavigation.hidden = true;
-    backTop.hidden = false;
+    if (lessonTopNavigation) lessonTopNavigation.hidden = true;
     clearPhaseSelection();
   }
 
@@ -61,7 +58,6 @@ export function installLabNavigation() {
     catalog.hidden = true;
     lessons.hidden = true;
     workspace.setAttribute('aria-hidden', 'false');
-    backTop.hidden = false;
     updateLessonNavigation(phase);
   }
 
@@ -70,9 +66,11 @@ export function installLabNavigation() {
     button?.click();
   }
 
+  brandHome?.addEventListener('click', (event) => {
+    event.preventDefault();
+    showCatalog();
+  });
   rotogravureButton.addEventListener('click', showLessons);
-  backTop?.addEventListener('click', showCatalog);
-  backLesson?.addEventListener('click', showCatalog);
   backToLessons?.addEventListener('click', showLessons);
   nextLesson?.addEventListener('click', () => {
     const index = sequence.indexOf(currentPhase);
