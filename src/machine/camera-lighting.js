@@ -11,6 +11,8 @@ export function installCameraAndLighting(doc) {
         if (!canvas || !locking) return;
 
         let pinchDistance = 0;
+        let pinchMidX = 0;
+        let pinchMidY = 0;
         let slowOrbitFrame = 0;
         let slowOrbitToken = 0;
         let lastLock = Number(S.lock);
@@ -21,6 +23,13 @@ export function installCameraAndLighting(doc) {
             touches[0].clientX - touches[1].clientX,
             touches[0].clientY - touches[1].clientY
           );
+        }
+
+        function midpoint(touches) {
+          return {
+            x: (touches[0].clientX + touches[1].clientX) / 2,
+            y: (touches[0].clientY + touches[1].clientY) / 2
+          };
         }
 
         function stopSlowOrbit() {
@@ -75,21 +84,40 @@ export function installCameraAndLighting(doc) {
           interceptPinch(event);
           stopSlowOrbit();
           pinchDistance = distance(event.touches);
+          const mid = midpoint(event.touches);
+          pinchMidX = mid.x;
+          pinchMidY = mid.y;
           locking.root.userData.pinching = true;
+          locking.root.userData.pinchPanning = true;
+          locking.root.userData.pinchPanDistance = 0;
         }, { passive: false, capture: true });
 
         canvas.addEventListener('touchmove', (event) => {
           if (event.touches.length !== 2 || !pinchDistance) return;
           interceptPinch(event);
           const nextDistance = distance(event.touches);
+          const nextMid = midpoint(event.touches);
+          const dx = nextMid.x - pinchMidX;
+          const dy = nextMid.y - pinchMidY;
+
           locking.zoomBy?.((pinchDistance - nextDistance) * 0.018);
+          // O centro dos dois dedos desloca o ponto observado. Assim é possível
+          // aproximar uma peça e, no mesmo gesto, trazê-la para o centro do ecrã.
+          panCam(-dx * 0.025, dy * 0.025);
+
           pinchDistance = nextDistance;
+          pinchMidX = nextMid.x;
+          pinchMidY = nextMid.y;
+          locking.root.userData.pinchPanDistance += Math.hypot(dx, dy);
         }, { passive: false, capture: true });
 
         canvas.addEventListener('touchend', (event) => {
           if (event.touches.length < 2) {
             pinchDistance = 0;
+            pinchMidX = 0;
+            pinchMidY = 0;
             locking.root.userData.pinching = false;
+            locking.root.userData.pinchPanning = false;
           }
         }, { passive: true, capture: true });
 
@@ -152,6 +180,15 @@ export function installCameraAndLighting(doc) {
           lightingRoot,
           startSlowOrbit,
           stopSlowOrbit,
+          getState() {
+            return {
+              radius: camRad,
+              target: { x: camTarget.x, y: camTarget.y, z: camTarget.z },
+              pinching: Boolean(locking.root.userData.pinching),
+              pinchPanning: Boolean(locking.root.userData.pinchPanning),
+              pinchPanDistance: locking.root.userData.pinchPanDistance || 0
+            };
+          },
           dispose() {
             active = false;
             stopSlowOrbit();
