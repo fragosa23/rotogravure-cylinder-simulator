@@ -44,12 +44,12 @@ export function installMobilePinchZoom(doc) {
   const hint = doc.createElement('div');
   hint.id = 'pinchZoomHint';
   hint.setAttribute('role', 'status');
-  hint.textContent = 'Usa dois dedos para aproximar ou afastar';
+  hint.textContent = 'Dois dedos: aproxima e move o ponto focado';
   doc.body.appendChild(hint);
 
   const canvas = doc.querySelector('#stage canvas, canvas');
   if (canvas) {
     canvas.style.touchAction = 'none';
-    canvas.setAttribute('aria-description', 'Arrasta com um dedo para rodar e usa dois dedos para fazer zoom.');
+    canvas.setAttribute('aria-description', 'Arrasta com um dedo para rodar. Usa dois dedos para fazer zoom e deslocar o ponto observado.');
   }
 }
