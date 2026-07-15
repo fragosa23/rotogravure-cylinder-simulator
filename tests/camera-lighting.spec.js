@@ -38,28 +38,40 @@ test('locking camera uses a slower demonstration orbit', async ({ page }) => {
   expect(state.slowOrbiting).toBe(true);
 });
 
-test('two-finger pinch is reserved for zoom and marks pinching state', async ({ page }) => {
+test('two-finger gesture zooms and moves the observed point without rotating', async ({ page }) => {
   await openAssembly(page);
   const result = await page.locator('#simulatorFrame').evaluate((iframe) => {
     const win = iframe.contentWindow;
     const canvas = iframe.contentDocument.querySelector('#stage canvas, canvas');
+    const api = win?.__ROTOSIM_CAMERA_LIGHTING__;
     const root = win?.__ROTOSIM_LOCKING_VISUALS__?.root;
-    const touch = (x, y) => ({ clientX: x, clientY: y, identifier: x, target: canvas });
-    const start = new TouchEvent('touchstart', {
-      bubbles: true,
-      cancelable: true,
-      touches: [touch(80, 100), touch(180, 100)],
-      targetTouches: [touch(80, 100), touch(180, 100)],
-      changedTouches: [touch(80, 100), touch(180, 100)]
-    });
-    canvas.dispatchEvent(start);
+    const before = api.getState();
+    const touch = (x, y) => ({ clientX: x, clientY: y, identifier: x * 10 + y, target: canvas });
+    const fire = (type, touches) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'touches', { value: touches });
+      canvas.dispatchEvent(event);
+      return event;
+    };
+
+    const start = fire('touchstart', [touch(80, 100), touch(180, 100)]);
+    fire('touchmove', [touch(105, 120), touch(235, 120)]);
+    const after = api.getState();
+
     return {
       prevented: start.defaultPrevented,
+      before,
+      after,
       pinching: root?.userData?.pinching,
       cameraFree: root?.userData?.cameraFree
     };
   });
+
   expect(result.prevented).toBe(true);
   expect(result.pinching).toBe(true);
   expect(result.cameraFree).toBe(true);
+  expect(result.after.radius).not.toBe(result.before.radius);
+  expect(result.after.target.x).not.toBe(result.before.target.x);
+  expect(result.after.pinchPanning).toBe(true);
+  expect(result.after.pinchPanDistance).toBeGreaterThan(0);
 });
