@@ -1,26 +1,55 @@
 const { test, expect } = require('@playwright/test');
 
-test('opens on ObaniA LAB landing screen without an active simulation', async ({ page }) => {
+async function openRotogravureLessons(page) {
+  await page.locator('[data-technology="rotogravure"]').click();
+  await expect(page.locator('body')).toHaveClass(/lessons-active/);
+  await expect(page.locator('#homeScreen')).toBeVisible();
+}
+
+test('opens on ObaniA LAB simulator catalog without an active technology', async ({ page }) => {
   await page.goto('/modern.html');
   await expect(page.locator('#loading')).toHaveClass(/hidden/);
-  await expect(page.locator('#homeScreen')).toBeVisible();
+  await expect(page.locator('body')).toHaveClass(/catalog-active/);
+  await expect(page.locator('#catalogScreen')).toBeVisible();
   await expect(page.locator('.brand strong')).toHaveText('ObaniA LAB');
-  await expect(page.locator('#homeScreen h1')).toContainText('laboratório para formação e experiências');
+  await expect(page.locator('#catalogScreen h1')).toHaveText('Escolhe o simulador.');
+  await expect(page.locator('[data-technology="rotogravure"]')).toContainText('ROTOGRAVURA');
+  await expect(page.locator('.phase-nav')).toBeHidden();
   await expect(page.locator('.phase-nav button.active')).toHaveCount(0);
 });
 
-test('choosing a simulation closes the home screen and opens matching controls', async ({ page }) => {
+test('rotogravure opens its lesson menu before any simulation', async ({ page }) => {
   await page.goto('/modern.html');
   await expect(page.locator('#loading')).toHaveClass(/hidden/);
+  await openRotogravureLessons(page);
+  await expect(page.locator('#homeScreen h1')).toHaveText('Escolhe uma lição.');
+  await expect(page.locator('#homeScreen [data-phase]')).toHaveCount(3);
+  await expect(page.locator('.workspace')).toHaveAttribute('aria-hidden', 'true');
+});
+
+test('choosing a lesson closes the lesson menu and opens matching controls', async ({ page }) => {
+  await page.goto('/modern.html');
+  await expect(page.locator('#loading')).toHaveClass(/hidden/);
+  await openRotogravureLessons(page);
   await page.locator('#homeScreen [data-phase="assembly"]').click();
-  await expect(page.locator('body')).not.toHaveClass(/home-active/);
+  await expect(page.locator('body')).toHaveClass(/simulation-active/);
   await expect(page.locator('#dockTitle')).toHaveText('Montagem');
   await expect(page.locator('#controlDock input[type="range"]')).toHaveCount(0);
+});
+
+test('back navigation returns from lessons to simulator catalog', async ({ page }) => {
+  await page.goto('/modern.html');
+  await expect(page.locator('#loading')).toHaveClass(/hidden/);
+  await openRotogravureLessons(page);
+  await page.locator('#lessonBack').click();
+  await expect(page.locator('body')).toHaveClass(/catalog-active/);
+  await expect(page.locator('#catalogScreen')).toBeVisible();
 });
 
 test('camera commands stay collapsed until the camera icon is opened', async ({ page }) => {
   await page.goto('/modern.html');
   await expect(page.locator('#loading')).toHaveClass(/hidden/);
+  await openRotogravureLessons(page);
   await page.locator('#homeScreen [data-phase="machine"]').click();
   const frame = page.frameLocator('#simulatorFrame');
   const toggle = frame.locator('#lockingZoomControls .camera-toggle');
