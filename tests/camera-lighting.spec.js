@@ -1,0 +1,65 @@
+const { test, expect } = require('@playwright/test');
+
+async function openAssembly(page) {
+  await page.goto('/modern.html');
+  await expect(page.locator('#loading')).toHaveClass(/hidden/);
+  await page.locator('[data-technology="rotogravure"]').click();
+  await page.locator('#homeScreen [data-phase="assembly"]').click();
+}
+
+test('focused lighting adds one overhead and two side spotlights', async ({ page }) => {
+  await openAssembly(page);
+  const lights = await page.locator('#simulatorFrame').evaluate((iframe) => {
+    const root = iframe.contentWindow?.__ROTOSIM_CAMERA_LIGHTING__?.lightingRoot;
+    return root?.children.map((light) => ({ name: light.name, type: light.type, intensity: light.intensity })) || [];
+  });
+  expect(lights).toHaveLength(3);
+  expect(lights.map((light) => light.name)).toEqual([
+    'cylinder-overhead-spot',
+    'left-fitting-spot',
+    'washer-side-spot'
+  ]);
+  expect(lights.every((light) => light.type === 'SpotLight' && light.intensity > 1)).toBe(true);
+});
+
+test('locking camera uses a slower demonstration orbit', async ({ page }) => {
+  await openAssembly(page);
+  const frame = page.frameLocator('#simulatorFrame');
+  await frame.locator('.locking-card[data-value="2"]').dispatchEvent('click');
+  await page.waitForTimeout(800);
+  const state = await page.locator('#simulatorFrame').evaluate((iframe) => {
+    const root = iframe.contentWindow?.__ROTOSIM_LOCKING_VISUALS__?.root;
+    return {
+      duration: root?.userData?.orbitDurationMs,
+      slowOrbiting: root?.userData?.slowOrbiting
+    };
+  });
+  expect(state.duration).toBe(10500);
+  expect(state.slowOrbiting).toBe(true);
+});
+
+test('two-finger pinch is reserved for zoom and marks pinching state', async ({ page }) => {
+  await openAssembly(page);
+  const result = await page.locator('#simulatorFrame').evaluate((iframe) => {
+    const win = iframe.contentWindow;
+    const canvas = iframe.contentDocument.querySelector('#stage canvas, canvas');
+    const root = win?.__ROTOSIM_LOCKING_VISUALS__?.root;
+    const touch = (x, y) => ({ clientX: x, clientY: y, identifier: x, target: canvas });
+    const start = new TouchEvent('touchstart', {
+      bubbles: true,
+      cancelable: true,
+      touches: [touch(80, 100), touch(180, 100)],
+      targetTouches: [touch(80, 100), touch(180, 100)],
+      changedTouches: [touch(80, 100), touch(180, 100)]
+    });
+    canvas.dispatchEvent(start);
+    return {
+      prevented: start.defaultPrevented,
+      pinching: root?.userData?.pinching,
+      cameraFree: root?.userData?.cameraFree
+    };
+  });
+  expect(result.prevented).toBe(true);
+  expect(result.pinching).toBe(true);
+  expect(result.cameraFree).toBe(true);
+});
