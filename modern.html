@@ -8,31 +8,50 @@
   <link rel="stylesheet" href="modern-ui.css" />
   <link rel="stylesheet" href="home-screen.css" />
 </head>
-<body class="home-active">
+<body class="catalog-active">
   <main class="app-shell">
     <header class="topbar">
       <a class="brand" href="modern.html" aria-label="ObaniA LAB — início">
         <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
         <span><strong>ObaniA LAB</strong><small>Formação técnica interativa</small></span>
       </a>
-      <nav class="phase-nav" aria-label="Módulos do simulador">
+      <nav class="phase-nav" aria-label="Lições de rotogravura">
         <button type="button" data-phase="assembly"><span>01</span> Montagem</button>
         <button type="button" data-phase="machine"><span>02</span> Junker</button>
         <button type="button" data-phase="clog"><span>03</span> Entupimento</button>
       </nav>
       <div class="top-actions">
+        <button id="backToCatalog" type="button" class="catalog-back" hidden>Simuladores</button>
         <button id="largeText" type="button" class="icon-button" aria-pressed="false" title="Aumentar texto">Aa</button>
         <button id="themeToggle" type="button" class="icon-button" aria-pressed="false" title="Mudar para modo claro" aria-label="Mudar para modo claro">☀</button>
         <button id="fullscreen" type="button" class="icon-button" title="Ecrã inteiro">⛶</button>
       </div>
     </header>
 
-    <section id="homeScreen" class="home-screen" aria-label="Página inicial">
+    <section id="catalogScreen" class="home-screen catalog-screen" aria-label="Escolher tecnologia de impressão">
       <div class="home-orbit" aria-hidden="true"><span class="orbit orbit-a"></span><span class="orbit orbit-b"></span><span class="orbit orbit-c"></span><span class="home-core">O</span></div>
       <p class="home-kicker">OBANIA LAB</p>
-      <h1>O laboratório para formação e experiências.</h1>
+      <h1>Escolhe o simulador.</h1>
+      <p class="home-copy">Laboratório de formação e experiências para artes gráficas.</p>
+      <div class="technology-actions" aria-label="Tecnologias disponíveis">
+        <button type="button" data-technology="rotogravure">
+          <span class="technology-code">01</span>
+          <strong>ROTOGRAVURA</strong>
+          <small>Máquina, cilindros, impressão, defeitos e diagnóstico.</small>
+          <i>Entrar</i>
+        </button>
+        <div class="future-technology" aria-disabled="true"><span>Futuramente</span><strong>FLEXOGRAFIA</strong></div>
+        <div class="future-technology" aria-disabled="true"><span>Futuramente</span><strong>OFFSET</strong></div>
+      </div>
+    </section>
+
+    <section id="homeScreen" class="home-screen lesson-screen" aria-label="Lições de rotogravura" hidden>
+      <button id="lessonBack" type="button" class="lesson-back">← Simuladores</button>
+      <div class="home-orbit lesson-orbit" aria-hidden="true"><span class="orbit orbit-a"></span><span class="orbit orbit-b"></span><span class="orbit orbit-c"></span><span class="home-core">R</span></div>
+      <p class="home-kicker">ROTOGRAVURA</p>
+      <h1>Escolhe uma lição.</h1>
       <p class="home-copy">Simulador do dia a dia de uma máquina de rotogravura.</p>
-      <div class="home-actions" aria-label="Escolher simulação">
+      <div class="home-actions" aria-label="Escolher lição">
         <button type="button" data-phase="assembly"><span>01</span><strong>Montagem</strong><small>Veio, buchas, anilhas e travamento</small></button>
         <button type="button" data-phase="machine"><span>02</span><strong>Efeito Junker</strong><small>Vibração, desaperto e resistência</small></button>
         <button type="button" data-phase="clog"><span>03</span><strong>Entupimento</strong><small>Tinta, raclete e transferência</small></button>
@@ -46,7 +65,7 @@
         <div id="loading" class="loading-state"><span class="loader"></span><p>A preparar o simulador</p></div>
       </section>
       <aside class="control-panel" aria-label="Controlos da simulação">
-        <div class="dock-heading"><p class="eyebrow">Fenómeno ativo</p><h1 id="dockTitle">Escolhe uma simulação</h1><p id="dockSubtitle">Seleciona um módulo no menu superior ou na página inicial.</p></div>
+        <div class="dock-heading"><p class="eyebrow">Fenómeno ativo</p><h1 id="dockTitle">Escolhe uma simulação</h1><p id="dockSubtitle">Seleciona uma lição de rotogravura.</p></div>
         <div id="controlDock" class="control-dock"></div>
         <section class="explanation-card" aria-live="polite"><div class="explanation-head"><span>Explicação</span><button id="whyButton" type="button">O que aconteceu?</button></div><p id="causeExplanation">A explicação aparece quando iniciares uma experiência.</p></section>
         <button id="advancedToggle" type="button" class="advanced-button" aria-pressed="false">Parâmetros avançados</button>
