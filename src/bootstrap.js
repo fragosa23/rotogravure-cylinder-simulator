@@ -6,6 +6,7 @@ import { installContextualControls } from './ui/contextual-controls.js';
 import { installContextualStyle } from './ui/contextual-style.js';
 import { installThemeToggle } from './ui/theme-toggle.js';
 import { installLabNavigation } from './ui/lab-navigation.js';
+import { installMobilePinchZoom } from './ui/mobile-pinch-zoom.js';
 
 const frame = document.getElementById('simulatorFrame');
 const loading = document.getElementById('loading');
@@ -36,6 +37,7 @@ try {
   installNordLockXSeries(frame.contentDocument);
   installTrainingExperience(frame.contentDocument);
   installContextualControls(frame);
+  installMobilePinchZoom(frame.contentDocument);
 } catch (error) {
   loading.classList.add('error');
   loading.innerHTML = `<p>Não foi possível iniciar o simulador.</p><small>${error.message}</small>`;
