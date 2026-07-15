@@ -5,12 +5,14 @@ import { installTrainingExperience } from './training/training-experience.js';
 import { installContextualControls } from './ui/contextual-controls.js';
 import { installContextualStyle } from './ui/contextual-style.js';
 import { installThemeToggle } from './ui/theme-toggle.js';
+import { installLabNavigation } from './ui/lab-navigation.js';
 
 const frame = document.getElementById('simulatorFrame');
 const loading = document.getElementById('loading');
 
 installThemeToggle();
 installContextualStyle();
+installLabNavigation();
 
 try {
   const frameLoaded = new Promise((resolve) => {
