@@ -38,7 +38,7 @@ test('locking camera uses a slower demonstration orbit', async ({ page }) => {
   expect(state.slowOrbiting).toBe(true);
 });
 
-test('two-finger gesture zooms and moves the observed point without rotating', async ({ page }) => {
+test('two-finger gesture zooms and visibly pans horizontally and vertically', async ({ page }) => {
   await openAssembly(page);
   const result = await page.locator('#simulatorFrame').evaluate((iframe) => {
     const win = iframe.contentWindow;
@@ -55,7 +55,7 @@ test('two-finger gesture zooms and moves the observed point without rotating', a
     };
 
     const start = fire('touchstart', [touch(80, 100), touch(180, 100)]);
-    fire('touchmove', [touch(105, 120), touch(235, 120)]);
+    fire('touchmove', [touch(130, 145), touch(260, 145)]);
     const after = api.getState();
 
     return {
@@ -67,11 +67,18 @@ test('two-finger gesture zooms and moves the observed point without rotating', a
     };
   });
 
+  const horizontalMovement = Math.hypot(
+    result.after.target.x - result.before.target.x,
+    result.after.target.z - result.before.target.z
+  );
+  const verticalMovement = Math.abs(result.after.target.y - result.before.target.y);
+
   expect(result.prevented).toBe(true);
   expect(result.pinching).toBe(true);
   expect(result.cameraFree).toBe(true);
   expect(result.after.radius).not.toBe(result.before.radius);
-  expect(result.after.target.x).not.toBe(result.before.target.x);
+  expect(horizontalMovement).toBeGreaterThan(0.1);
+  expect(verticalMovement).toBeGreaterThan(0.1);
   expect(result.after.pinchPanning).toBe(true);
   expect(result.after.pinchPanDistance).toBeGreaterThan(0);
 });
